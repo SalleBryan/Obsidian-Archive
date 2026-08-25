@@ -132,44 +132,24 @@ class RedRisingCdkStack(Stack):
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=apigw.Cors.ALL_ORIGINS,
                 allow_methods=apigw.Cors.ALL_METHODS,
-                allow_headers=["Content-Type", "Authorization", "x-api-key"],
+                allow_headers=["Content-Type", "Authorization"],
             ),
         )
 
         # /books
         books = api.root.add_resource("books")
-        books.add_method("GET",  apigw.LambdaIntegration(reader_fn), api_key_required=True)
-        books.add_method("POST", apigw.LambdaIntegration(writer_fn), api_key_required=True)
+        books.add_method("GET",  apigw.LambdaIntegration(reader_fn))
+        books.add_method("POST", apigw.LambdaIntegration(writer_fn))
 
         # /upload
         upload = api.root.add_resource("upload")
-        upload.add_method("POST", apigw.LambdaIntegration(presigned_fn), api_key_required=True)
-
-        # ── 6b. API Key & Usage Plan ────────────────────────────────────────
-        plan = api.add_usage_plan("UsagePlan",
-            name="RedRisingUsagePlan",
-            throttle=apigw.ThrottleSettings(
-                rate_limit=20,
-                burst_limit=5
-            )
-        )
-        key = api.add_api_key("ApiKey",
-            api_key_name="RedRisingApiKey"
-        )
-        plan.add_api_key(key)
-        plan.add_api_stage(
-            stage=api.deployment_stage
-        )
+        upload.add_method("POST", apigw.LambdaIntegration(presigned_fn))
 
 
         # ── 9. Stack Outputs ────────────────────────────────────────────────
         CfnOutput(self, "ApiUrl",
             value=api.url,
             description="Paste this into App.jsx as API_BASE (without trailing slash)")
-
-        CfnOutput(self, "ApiKeyId",
-            value=key.key_id,
-            description="Use this ID in the AWS CLI to retrieve the actual secret key value")
 
         CfnOutput(self, "ImagesBucketName",
             value=images_bucket.bucket_name)

@@ -350,19 +350,14 @@ const STYLES = `
 // ── API ───────────────────────────────────────────────────────────────────────
 const api = {
   getBooks: async () => {
-    const res = await fetch(EP.books, {
-      headers: { "x-api-key": import.meta.env.VITE_API_KEY }
-    });
+    const res = await fetch(EP.books);
     const data = await res.json();
     return (data.books || []).sort((a, b) => a["book-num"] - b["book-num"]);
   },
   mutate: async (operation, payload) => {
     const res = await fetch(EP.books, {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "x-api-key": import.meta.env.VITE_API_KEY
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ operation, payload })
     });
     if (!res.ok) {
@@ -376,10 +371,7 @@ const api = {
     const mimeType = file.type || `image/${ext}`;
     const res = await fetch(EP.upload, {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "x-api-key": import.meta.env.VITE_API_KEY
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ extension: ext, contentType: mimeType })
     });
     const { uploadUrl, publicUrl } = await res.json();
