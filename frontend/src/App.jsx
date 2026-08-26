@@ -17,7 +17,7 @@ import {
   AlertTriangle, Check, RefreshCw, UploadCloud, Settings,
   Lock, Globe, User, LogIn, LogOut, FileText, Bell, MessageSquarePlus, Share2,
   Shield, CheckCircle2, Circle, ExternalLink, Sparkles, Layers, Bookmark,
-  Maximize2, Minimize2, Type, Sun, Moon, Coffee, ChevronDown, CheckCheck
+  Maximize2, Minimize2, Type, Sun, Moon, Coffee, ChevronDown, ChevronRight, CheckCheck, Home
 } from "lucide-react";
 import {
   signIn,
@@ -272,36 +272,47 @@ const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap');
   
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background-color: #0e1014;
+  html, body {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    background-color: #14110e;
     color: #e4e4e7;
     font-family: 'Plus Jakarta Sans', sans-serif;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
   }
   a { color: inherit; text-decoration: none; }
-  .shell { display: flex; min-height: 100vh; }
+  
+  /* Global Layout */
+  .shell {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    background-color: #14110e;
+  }
   
   /* Prevent auto-zoom on iOS Safari inputs */
   input, select, textarea {
     font-size: 16px;
   }
   
-  /* SIDEBAR (Desktop) */
+  /* SIDEBAR (Desktop Only) */
   .sidebar {
-    width: 270px; background: #14161b; border-right: 1px solid rgba(255, 205, 91, 0.1);
+    width: 260px; background: #191512; border-right: 1px solid rgba(255, 205, 91, 0.1);
     display: flex; flex-direction: column; justify-content: space-between;
-    padding: 28px 20px; position: fixed; top: 0; bottom: 0; left: 0; z-index: 40;
+    padding: 24px 18px; position: fixed; top: 0; bottom: 0; left: 0; z-index: 40;
   }
   @media(max-width: 768px) { .sidebar { display: none; } }
-  .sidebar-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; cursor: pointer; }
+  .sidebar-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; cursor: pointer; }
   .sidebar-brand-icon {
-    width: 44px; height: 44px; border-radius: 12px; background: rgba(255,205,91,0.12);
+    width: 42px; height: 42px; border-radius: 12px; background: rgba(255,205,91,0.12);
     border: 1px solid rgba(255,205,91,0.3); display: flex; align-items: center; justify-content: center;
     color: #ffcd5b; box-shadow: 0 4px 20px rgba(255,205,91,0.2);
   }
-  .sidebar-brand-title { font-size: 19px; font-weight: 800; color: #ffcd5b; letter-spacing: -0.02em; }
+  .sidebar-brand-title { font-size: 18px; font-weight: 800; color: #ffcd5b; letter-spacing: -0.02em; }
   .sidebar-brand-sub { font-size: 11px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
   
   .sidebar-nav { display: flex; flex-direction: column; gap: 6px; flex: 1; }
@@ -310,83 +321,72 @@ const STYLES = `
     border-radius: 10px; color: #d4d4d8; font-size: 14px; font-weight: 600;
     transition: all 0.2s; border: none; background: transparent; cursor: pointer; width: 100%; text-align: left;
   }
-  .nav-item:hover { background: #1c1e24; color: #ffcd5b; }
-  .nav-item.active { background: rgba(255,205,91,0.12); color: #ffcd5b; border-left: 3px solid #ffcd5b; }
+  .nav-item:hover { background: #231e1a; color: #ffcd5b; }
+  .nav-item.active { background: rgba(255,205,91,0.14); color: #ffcd5b; border-left: 3px solid #ffcd5b; }
 
   /* MAIN AREA */
-  .main-area { flex: 1; margin-left: 270px; display: flex; flex-direction: column; min-height: 100vh; }
-  @media(max-width: 768px) { .main-area { margin-left: 0; } }
+  .main-area {
+    flex: 1;
+    margin-left: 260px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: calc(100% - 260px);
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  @media(max-width: 768px) {
+    .main-area {
+      margin-left: 0;
+      width: 100%;
+      max-width: 100vw;
+    }
+  }
 
-  /* TOPBAR */
+  /* DESKTOP TOPBAR */
   .topbar {
-    position: sticky; top: 0; z-index: 30; height: 72px;
-    background: rgba(14,16,20,0.92); backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    display: flex; align-items: center; justify-content: space-between; padding: 0 40px;
+    position: sticky; top: 0; z-index: 30; height: 68px;
+    background: rgba(20,17,14,0.94); backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 36px;
     gap: 16px;
   }
   @media(max-width: 768px) {
-    .topbar {
-      height: 58px;
-      padding: 0 12px;
-      gap: 10px;
-    }
+    .topbar { display: none; }
   }
-  .topbar-brand { display: none; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; color: #ffcd5b; cursor: pointer; flex-shrink: 0; }
-  @media(max-width: 768px) { .topbar-brand { display: flex; } }
-  
   .topbar-search { position: relative; flex: 1; max-width: 440px; margin: 0 16px; }
-  @media(max-width: 768px) {
-    .topbar-search { margin: 0 2px; max-width: none; }
-  }
   .topbar-search input {
-    width: 100%; height: 42px; padding: 0 16px 0 42px; background: #17191f;
-    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 999px; color: #e4e4e7;
+    width: 100%; height: 42px; padding: 0 16px 0 42px; background: #211c18;
+    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 999px; color: #e4e4e7;
     font-family: inherit; font-size: 14px; outline: none; transition: all 0.2s;
-  }
-  @media(max-width: 768px) {
-    .topbar-search input { height: 36px; padding: 0 12px 0 34px; font-size: 13px; }
   }
   .topbar-search input:focus { border-color: #ffcd5b; box-shadow: 0 0 0 2px rgba(255,205,91,0.2); }
   .topbar-search-icon { position: absolute; left: 14px; top: 12px; color: #a1a1aa; }
-  @media(max-width: 768px) {
-    .topbar-search-icon { left: 10px; top: 9px; width: 16px; height: 16px; }
-  }
-  
   .topbar-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-  @media(max-width: 768px) {
-    .topbar-actions { gap: 6px; }
-    .topbar-desktop-upload { display: none; }
-  }
   
   .icon-btn {
     width: 38px; height: 38px; border-radius: 50%; border: none; background: transparent;
     color: #a1a1aa; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center;
     position: relative; flex-shrink: 0;
   }
-  .icon-btn:hover { background: #1c1e24; color: #ffcd5b; }
+  .icon-btn:hover { background: #25201b; color: #ffcd5b; }
   .badge-dot {
     position: absolute; top: 6px; right: 6px; width: 8px; height: 8px;
-    background: #ef4444; border-radius: 50%; border: 2px solid #0e1014;
+    background: #ef4444; border-radius: 50%; border: 2px solid #14110e;
   }
 
-  /* User Pill on Navbar */
+  /* User Pill on Desktop Navbar */
   .user-nav-pill {
     display: flex; align-items: center; gap: 10px; padding: 5px 12px 5px 5px;
-    background: #17191f; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 999px;
+    background: #211c18; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 999px;
     cursor: pointer; transition: all 0.2s; user-select: none; flex-shrink: 0;
   }
-  .user-nav-pill:hover { border-color: #ffcd5b; background: #1f2128; }
+  .user-nav-pill:hover { border-color: #ffcd5b; background: #2a241f; }
   .user-nav-avatar {
-    width: 30px; height: 30px; border-radius: 50%; background: #ffcd5b; color: #1a1300;
+    width: 30px; height: 30px; border-radius: 50%; background: #ffcd5b; color: #14110e;
     font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center;
   }
   .user-nav-name { font-size: 13px; font-weight: 700; color: #e4e4e7; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  
-  @media(max-width: 768px) {
-    .user-nav-pill { padding: 3px; border-radius: 50%; background: transparent; border: none; }
-    .user-nav-name, .admin-badge, .user-nav-chevron { display: none !important; }
-  }
   
   /* Super Admin Badge */
   .admin-badge {
@@ -395,34 +395,304 @@ const STYLES = `
     font-size: 10px; font-weight: 800; color: #ffcd5b; text-transform: uppercase; letter-spacing: 0.08em;
   }
 
-  /* PAGE LAYOUT */
-  .page { padding: 32px 40px 100px; max-width: 1400px; width: 100%; }
-  @media(max-width: 768px) {
-    .page { padding: 16px 14px calc(76px + env(safe-area-inset-bottom)) 14px; }
+  /* GOOGLE PLAY BOOKS STYLE MOBILE TOP SEARCH BAR */
+  .mobile-search-pill-container {
+    display: none;
+    padding: 12px 16px 8px;
+    position: sticky;
+    top: 0;
+    z-index: 35;
+    background: #14110e;
+    width: 100%;
+    max-width: 100vw;
   }
-  .page-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .eyebrow-line { width: 36px; height: 3px; background: #ffcd5b; border-radius: 999px; }
-  .eyebrow-text { font-size: 11px; font-weight: 800; color: #ffcd5b; text-transform: uppercase; letter-spacing: 0.12em; }
-  .page-title { font-size: 36px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; line-height: 1.15; }
   @media(max-width: 768px) {
-    .page-title { font-size: 24px; }
+    .mobile-search-pill-container {
+      display: block;
+    }
   }
-  .page-sub { font-size: 14px; color: #a1a1aa; margin-top: 4px; }
-  @media(max-width: 768px) {
-    .page-sub { font-size: 12px; }
+  .mobile-search-pill {
+    display: flex;
+    align-items: center;
+    background: #231e1a;
+    border-radius: 28px;
+    height: 48px;
+    padding: 0 8px 0 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    gap: 10px;
+    width: 100%;
   }
-  .page-header { margin-bottom: 24px; }
-  @media(max-width: 768px) {
-    .page-header { margin-bottom: 16px; }
+  .mobile-search-pill input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #e4e4e7;
+    font-size: 15px;
+    font-family: inherit;
+  }
+  .mobile-search-pill input::placeholder {
+    color: #9e8f80;
+    font-size: 14px;
+  }
+  .search-pill-icon {
+    color: #ffcd5b;
+    flex-shrink: 0;
+  }
+  .search-pill-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ffcd5b;
+    color: #14110e;
+    font-weight: 800;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 0 0 2px rgba(255,205,91,0.3);
+    flex-shrink: 0;
+  }
+  .search-pill-signin {
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(255,205,91,0.15);
+    color: #ffcd5b;
+    border: 1px solid rgba(255,205,91,0.3);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
   }
 
-  /* TOOLBAR & CHIPS (Horizontal Scroll on Mobile) */
+  /* PROMO / BANNER STRIP (Like Play Books Prize Strip) */
+  .playbooks-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: #1f1914;
+    border-radius: 12px;
+    margin: 4px 16px 16px;
+    border: 1px solid rgba(255, 205, 91, 0.15);
+    font-size: 12px;
+  }
+  .playbooks-banner-text {
+    color: #d6c6b8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .playbooks-banner-link {
+    color: #ffcd5b;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  /* GOOGLE PLAY BOOKS TEXT TABS */
+  .gplay-tabs-row {
+    display: flex;
+    gap: 24px;
+    padding: 6px 16px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .gplay-tabs-row::-webkit-scrollbar { display: none; }
+  .gplay-tab-btn {
+    position: relative;
+    padding-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #9e8f80;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s;
+    font-family: inherit;
+  }
+  .gplay-tab-btn.active {
+    color: #ffcd5b;
+    font-weight: 700;
+  }
+  .gplay-tab-indicator {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #ffcd5b;
+    border-radius: 999px;
+  }
+
+  /* HORIZONTAL SHELF SECTIONS (Google Play Books Style) */
+  .shelf-section {
+    margin-bottom: 28px;
+    width: 100%;
+    max-width: 100vw;
+  }
+  .shelf-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px 10px;
+    cursor: pointer;
+  }
+  .shelf-header-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+  }
+  .shelf-header-sub {
+    font-size: 12px;
+    color: #9e8f80;
+    margin-top: 2px;
+  }
+  .shelf-header-arrow {
+    color: #ffcd5b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .shelf-scroll-row {
+    display: flex;
+    gap: 14px;
+    padding: 4px 16px 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .shelf-scroll-row::-webkit-scrollbar { display: none; }
+
+  /* SHELF BOOK ITEM (Google Play Books Item) */
+  .book-shelf-item {
+    flex-shrink: 0;
+    width: 145px;
+    cursor: pointer;
+    scroll-snap-align: start;
+    transition: transform 0.2s;
+  }
+  .book-shelf-item.large {
+    width: 180px;
+  }
+  @media(max-width: 480px) {
+    .book-shelf-item { width: 135px; }
+    .book-shelf-item.large { width: 165px; }
+  }
+  .book-shelf-item:hover {
+    transform: translateY(-4px);
+  }
+  .shelf-cover-wrapper {
+    width: 100%;
+    aspect-ratio: 2/3;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #211c18;
+    position: relative;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .book-shelf-item.large .shelf-cover-wrapper {
+    border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.65);
+  }
+  .shelf-cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .shelf-cover-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .shelf-series-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    font-size: 9px;
+    font-weight: 700;
+    color: #ffcd5b;
+    border: 1px solid rgba(255,205,91,0.25);
+  }
+  .shelf-meta {
+    margin-top: 8px;
+    padding: 0 2px;
+  }
+  .shelf-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #f4f4f5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }
+  .book-shelf-item.large .shelf-title {
+    font-size: 14px;
+  }
+  .shelf-sub {
+    font-size: 11px;
+    color: #9e8f80;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* PAGE CONTAINER (Desktop & Mobile) */
+  .page {
+    padding: 24px 36px 100px;
+    max-width: 1400px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  @media(max-width: 768px) {
+    .page {
+      padding: 8px 0 calc(76px + env(safe-area-inset-bottom)) 0;
+      max-width: 100vw;
+    }
+  }
+  .page-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding: 0 16px; }
+  .eyebrow-line { width: 36px; height: 3px; background: #ffcd5b; border-radius: 999px; }
+  .eyebrow-text { font-size: 11px; font-weight: 800; color: #ffcd5b; text-transform: uppercase; letter-spacing: 0.12em; }
+  .page-title { font-size: 34px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; line-height: 1.15; padding: 0 16px; }
+  @media(max-width: 768px) {
+    .page-title { font-size: 22px; }
+  }
+  .page-sub { font-size: 13px; color: #a1a1aa; margin-top: 4px; padding: 0 16px; }
+  .page-header { margin-bottom: 20px; }
+
+  /* TOOLBAR & CHIPS */
   .toolbar {
-    display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; align-items: center;
+    display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+    padding: 0 16px;
   }
   @media(max-width: 768px) {
     .toolbar {
-      overflow-x: auto; flex-wrap: nowrap; padding-bottom: 8px; margin-bottom: 16px;
+      overflow-x: auto; flex-wrap: nowrap; padding: 0 16px 8px 16px; margin-bottom: 16px;
       -webkit-overflow-scrolling: touch; scrollbar-width: none;
     }
     .toolbar::-webkit-scrollbar { display: none; }
@@ -438,36 +708,20 @@ const STYLES = `
   .cat-chip:hover { border-color: #ffcd5b; color: #e4e4e7; }
   .cat-chip.active { background: rgba(255,205,91,0.14); border-color: #ffcd5b; color: #ffcd5b; font-weight: 700; }
 
-  /* Toggle Pills */
-  .view-toggle {
-    display: inline-flex; padding: 4px; background: #17191f; border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 20px;
+  /* BOOK GRID (For Flat Grid View) */
+  .book-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+    padding: 0 16px;
   }
-  .toggle-btn {
-    padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
-    border: none; background: transparent; color: #a1a1aa; cursor: pointer; transition: all 0.2s;
-    display: flex; align-items: center; gap: 6px; font-family: inherit;
-  }
-  @media(max-width: 768px) {
-    .toggle-btn { padding: 6px 12px; font-size: 12px; }
-  }
-  .toggle-btn.active { background: #ffcd5b; color: #14161b; box-shadow: 0 2px 10px rgba(255,205,91,0.25); }
-
-  /* BOOK GRID & CARDS (2 Columns on Mobile) */
-  .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
   @media(max-width: 640px) {
     .book-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   }
-  @media(max-width: 340px) {
-    .book-grid { grid-template-columns: 1fr; }
-  }
   .book-card {
     position: relative; border-radius: 12px; overflow: hidden; cursor: pointer; aspect-ratio: 2/3;
-    background: #17191f; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+    background: #1f1b17; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 6px 20px rgba(0,0,0,0.45);
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-  }
-  @media(max-width: 640px) {
-    .book-card { border-radius: 10px; }
   }
   .book-card:hover { transform: translateY(-4px); box-shadow: 0 16px 32px rgba(0,0,0,0.7); border-color: rgba(255,205,91,0.4); }
   .book-card-top-bar { position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 10; }
@@ -476,9 +730,6 @@ const STYLES = `
     background: rgba(0,0,0,0.82); backdrop-filter: blur(8px); font-size: 10px; font-weight: 700;
     display: flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,0.12);
   }
-  @media(max-width: 640px) {
-    .book-card-badge { top: 6px; right: 6px; padding: 2px 5px; font-size: 9px; }
-  }
   .book-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; display: block; }
   .book-card:hover .book-card-img { transform: scale(1.04); }
   .book-overlay {
@@ -486,25 +737,9 @@ const STYLES = `
     background: linear-gradient(to top, rgba(14,16,20,0.96) 0%, rgba(14,16,20,0.35) 60%, transparent 100%);
     display: flex; flex-direction: column; justify-content: flex-end; padding: 12px;
   }
-  @media(max-width: 640px) {
-    .book-overlay { padding: 10px 8px; }
-  }
   .book-title-text { font-size: 14px; font-weight: 700; color: #fff; line-height: 1.25; }
-  @media(max-width: 640px) {
-    .book-title-text { font-size: 13px; line-height: 1.2; }
-  }
   .book-author-text { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 2px; }
   .book-series-tag { font-size: 9px; color: #ffcd5b; font-weight: 700; margin-top: 3px; }
-
-  /* Series Section */
-  .series-section { margin-bottom: 32px; }
-  .series-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px; background: #17191f; border: 1px solid rgba(255, 205, 91, 0.2);
-    border-radius: 10px; margin-bottom: 16px;
-  }
-  .series-title { font-size: 16px; font-weight: 800; color: #ffcd5b; display: flex; align-items: center; gap: 8px; }
-  .series-count { font-size: 11px; color: #a1a1aa; font-weight: 600; }
 
   /* BUTTONS */
   .btn {
@@ -513,25 +748,25 @@ const STYLES = `
     cursor: pointer; transition: all 0.2s; border: none; text-decoration: none; justify-content: center;
   }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-primary { background: #ffcd5b; color: #14161b; box-shadow: 0 4px 14px rgba(255,205,91,0.25); }
+  .btn-primary { background: #ffcd5b; color: #14110e; box-shadow: 0 4px 14px rgba(255,205,91,0.25); }
   .btn-primary:hover:not(:disabled) { background: #ffd875; transform: translateY(-1px); }
   .btn-danger { background: transparent; color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
   .btn-danger:hover:not(:disabled) { background: rgba(248,113,113,0.12); border-color: #f87171; }
-  .btn-secondary { background: #17191f; color: #e4e4e7; border: 1px solid rgba(255,255,255,0.12); }
-  .btn-secondary:hover:not(:disabled) { background: #22252e; border-color: #ffcd5b; }
+  .btn-secondary { background: #231e1a; color: #e4e4e7; border: 1px solid rgba(255,255,255,0.12); }
+  .btn-secondary:hover:not(:disabled) { background: #2c2621; border-color: #ffcd5b; }
 
   /* GLASS PANEL & DETAIL PAGE */
   .glass-panel {
-    background: rgba(23,25,31,0.85); backdrop-filter: blur(16px);
+    background: rgba(33,28,24,0.85); backdrop-filter: blur(16px);
     border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 12px 32px rgba(0,0,0,0.5);
   }
-  .detail-grid { display: grid; grid-template-columns: 260px 1fr; gap: 36px; align-items: start; }
+  .detail-grid { display: grid; grid-template-columns: 260px 1fr; gap: 36px; align-items: start; padding: 0 16px; }
   @media(max-width: 768px) {
-    .detail-grid { grid-template-columns: 1fr; gap: 20px; }
+    .detail-grid { grid-template-columns: 1fr; gap: 20px; padding: 0 16px; }
   }
   .cover-wrapper {
     width: 100%; aspect-ratio: 2/3; border-radius: 12px; overflow: hidden;
-    background: #17191f; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 16px 48px rgba(0,0,0,0.7); position: relative;
+    background: #211c18; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 16px 48px rgba(0,0,0,0.7); position: relative;
   }
   @media(max-width: 768px) {
     .cover-wrapper { max-width: 180px; margin: 0 auto 8px auto; border-radius: 10px; }
@@ -549,7 +784,7 @@ const STYLES = `
   @media(max-width: 768px) {
     .detail-description {
       font-size: 13px; line-height: 1.7; text-align: left;
-      background: rgba(23,25,31,0.6); padding: 14px; border-radius: 10px;
+      background: rgba(33,28,24,0.6); padding: 14px; border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.06);
     }
   }
@@ -562,23 +797,23 @@ const STYLES = `
   /* EDITOR / FORMS */
   .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
   @media(max-width: 768px) { .editor-grid { grid-template-columns: 1fr; gap: 16px; } }
-  .editor-card { border-radius: 14px; padding: 24px; }
-  @media(max-width: 768px) { .editor-card { padding: 16px; border-radius: 12px; } }
+  .editor-card { border-radius: 14px; padding: 24px; margin: 0 16px; }
+  @media(max-width: 768px) { .editor-card { padding: 16px; border-radius: 12px; margin: 0 16px; } }
   .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
   .field label { font-size: 11px; font-weight: 700; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.08em; }
   .field input, .field select, .field textarea {
-    background: #111317; border: 1px solid rgba(255, 255, 255, 0.12); padding: 11px 14px; border-radius: 8px;
+    background: #191512; border: 1px solid rgba(255, 255, 255, 0.12); padding: 11px 14px; border-radius: 8px;
     color: #e4e4e7; font-family: inherit; font-size: 14px; width: 100%; outline: none; transition: all 0.2s;
   }
   @media(max-width: 768px) {
     .field input, .field select, .field textarea { font-size: 15px; padding: 11px 12px; }
   }
   .field input:focus, .field select:focus, .field textarea:focus { border-color: #ffcd5b; box-shadow: 0 0 0 2px rgba(255,205,91,0.15); }
-  .field select option { background: #17191f; }
+  .field select option { background: #211c18; }
   .upload-zone {
     border: 2px dashed rgba(255, 255, 255, 0.18); border-radius: 10px; min-height: 110px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; background: #111317; padding: 14px;
+    cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; background: #191512; padding: 14px;
   }
   .upload-zone:hover { border-color: #ffcd5b; background: rgba(255,205,91,0.03); }
   .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
@@ -617,7 +852,7 @@ const STYLES = `
     display: flex; align-items: center; justify-content: center; z-index: 100; padding: 14px;
   }
   .modal-box {
-    background: #17191f; border: 1px solid rgba(255,205,91,0.25); border-radius: 16px;
+    background: #211c18; border: 1px solid rgba(255,205,91,0.25); border-radius: 16px;
     width: 100%; max-width: 440px; padding: 28px; box-shadow: 0 24px 64px rgba(0,0,0,0.9);
   }
   @media(max-width: 768px) {
@@ -627,7 +862,7 @@ const STYLES = `
   /* Notifications Dropdown */
   .notif-dropdown {
     position: absolute; top: 60px; right: 240px; width: 340px; max-height: 420px;
-    background: #17191f; border: 1px solid rgba(255,205,91,0.25); border-radius: 14px;
+    background: #211c18; border: 1px solid rgba(255,205,91,0.25); border-radius: 14px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.8); z-index: 50; overflow-y: auto; padding: 12px;
   }
   @media(max-width: 768px) {
@@ -637,16 +872,16 @@ const STYLES = `
     }
   }
   .notif-item {
-    padding: 12px; border-radius: 8px; background: #111317; border: 1px solid rgba(255,255,255,0.06);
+    padding: 12px; border-radius: 8px; background: #191512; border: 1px solid rgba(255,255,255,0.06);
     margin-bottom: 8px; cursor: pointer; transition: all 0.2s;
   }
-  .notif-item:hover { border-color: #ffcd5b; background: #1c1e24; }
+  .notif-item:hover { border-color: #ffcd5b; background: #2a241f; }
   .notif-item.unread { border-left: 3px solid #ffcd5b; }
 
   /* User Menu Dropdown */
   .user-menu-dropdown {
     position: absolute; top: 60px; right: 40px; width: 220px;
-    background: #17191f; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+    background: #211c18; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.8); z-index: 50; padding: 8px;
   }
   @media(max-width: 768px) {
@@ -659,15 +894,15 @@ const STYLES = `
     font-size: 13px; font-weight: 600; color: #e4e4e7; cursor: pointer; transition: all 0.15s;
     border: none; background: transparent; width: 100%; text-align: left;
   }
-  .menu-item:hover { background: #22252e; color: #ffcd5b; }
+  .menu-item:hover { background: #2a241f; color: #ffcd5b; }
 
   /* PROGRESS BAR */
-  .progress-container { width: 100%; height: 8px; background: #111317; border-radius: 999px; overflow: hidden; margin: 16px 0; }
+  .progress-container { width: 100%; height: 8px; background: #191512; border-radius: 999px; overflow: hidden; margin: 16px 0; }
   .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #ffcd5b, #4ADE80); transition: width 0.3s ease; }
 
   /* ONLINE READER THEMES & MOBILE */
   .reader-shell { min-height: 100vh; display: flex; flex-direction: column; }
-  .reader-theme-dark { background-color: #111317; color: #d4d4d8; }
+  .reader-theme-dark { background-color: #14110e; color: #d4d4d8; }
   .reader-theme-sepia { background-color: #fbf0d9; color: #433422; }
   .reader-theme-light { background-color: #ffffff; color: #18181b; }
 
@@ -700,33 +935,65 @@ const STYLES = `
 
   /* Policy Checklist */
   .policy-checklist {
-    background: #111317; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+    background: #191512; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
     padding: 12px 14px; margin: 12px 0 16px; display: flex; flex-direction: column; gap: 6px;
   }
   .policy-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a1a1aa; }
   .policy-item.valid { color: #4ADE80; font-weight: 600; }
 
-  /* MOBILE BOTTOM NAVIGATION BAR */
-  .mobile-nav {
-    display: none; position: fixed; bottom: 0; left: 0; right: 0;
-    background: rgba(18, 20, 25, 0.94); backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255,255,255,0.1); z-index: 50;
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
+  /* GOOGLE PLAY BOOKS BOTTOM NAVIGATION BAR */
+  .gplay-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #191512;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    z-index: 50;
+    height: 64px;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
   }
   @media(max-width: 768px) {
-    .mobile-nav { display: flex; justify-content: space-around; height: 60px; align-items: center; }
+    .gplay-bottom-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+    }
   }
-  .mobile-nav-item {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-    color: #a1a1aa; font-size: 10px; font-weight: 600; cursor: pointer; flex: 1; height: 100%;
-    padding: 4px 0; border: none; background: transparent; font-family: inherit; text-decoration: none;
+  .gplay-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: #9e8f80;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    flex: 1;
+    height: 100%;
+    border: none;
+    background: transparent;
+    font-family: inherit;
     transition: all 0.15s;
   }
-  .mobile-nav-item.active { color: #ffcd5b; }
-  .mobile-upload-circle {
-    width: 38px; height: 38px; border-radius: 50%; background: #ffcd5b; color: #14161b;
-    display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(255,205,91,0.35);
-    margin-bottom: 2px;
+  .gplay-nav-item .gplay-nav-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 18px;
+    border-radius: 16px;
+    transition: all 0.18s;
+  }
+  .gplay-nav-item.active {
+    color: #ffcd5b;
+    font-weight: 700;
+  }
+  .gplay-nav-item.active .gplay-nav-icon-wrap {
+    background: #3e2f1c;
+    color: #ffcd5b;
   }
 `;
 
@@ -976,7 +1243,7 @@ function AppShell() {
 
         {/* MAIN AREA */}
         <div className="main-area">
-          {/* STICKY TOPBAR */}
+          {/* DESKTOP STICKY TOPBAR */}
           <header className="topbar">
             <div className="topbar-brand" onClick={() => navigate("/library")}>
               <BookOpen size={22} /> Obsidian
@@ -1037,6 +1304,32 @@ function AppShell() {
             </div>
           </header>
 
+          {/* GOOGLE PLAY BOOKS STYLE MOBILE TOP SEARCH PILL */}
+          <div className="mobile-search-pill-container">
+            <div className="mobile-search-pill">
+              <Search size={18} className="search-pill-icon" />
+              <input
+                type="text"
+                placeholder="Search Obsidian Archive"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {currentUser ? (
+                <div
+                  className="search-pill-avatar"
+                  onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifMenuOpen(false); }}
+                  title={currentUser.name}
+                >
+                  {currentUser.name.charAt(0).toUpperCase()}
+                </div>
+              ) : (
+                <button className="search-pill-signin" onClick={() => openAuth("signin")}>
+                  <LogIn size={13} /> Sign In
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* NOTIFICATIONS DROPDOWN */}
           <AnimatePresence>
             {notifMenuOpen && (
@@ -1084,8 +1377,8 @@ function AppShell() {
                 exit={{ opacity: 0, y: -10 }}
               >
                 <div style={{ padding: "8px 12px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 6 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{currentUser.name}</div>
-                  <div style={{ fontSize: 11, color: "#a1a1aa" }}>{currentUser.email}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{currentUser?.name || "Guest"}</div>
+                  <div style={{ fontSize: 11, color: "#a1a1aa" }}>{currentUser?.email || ""}</div>
                   {isSuperAdmin && (
                     <div style={{ marginTop: 6 }}>
                       <span className="admin-badge"><Shield size={10} /> Super Admin</span>
@@ -1142,42 +1435,40 @@ function AppShell() {
           </Routes>
         </div>
 
-        {/* MOBILE BOTTOM NAVIGATION */}
-        <nav className="mobile-nav">
-          <Link to="/library" className={`mobile-nav-item ${location.pathname === "/library" ? "active" : ""}`}>
-            <Globe size={18} />
-            <span>Library</span>
+        {/* GOOGLE PLAY BOOKS STYLE MOBILE BOTTOM NAVIGATION */}
+        <nav className="gplay-bottom-nav">
+          <Link to="/library" className={`gplay-nav-item ${location.pathname === "/library" || location.pathname === "/" ? "active" : ""}`}>
+            <div className="gplay-nav-icon-wrap"><Home size={19} /></div>
+            <span>Home</span>
           </Link>
           <Link
             to="/collection"
-            className={`mobile-nav-item ${location.pathname === "/collection" ? "active" : ""}`}
+            className={`gplay-nav-item ${location.pathname === "/collection" ? "active" : ""}`}
             onClick={(e) => { if (!currentUser) { e.preventDefault(); openAuth("signin"); } }}
           >
-            <Library size={18} />
-            <span>Collection</span>
+            <div className="gplay-nav-icon-wrap"><Library size={19} /></div>
+            <span>Library</span>
           </Link>
           <Link
             to="/upload"
-            className={`mobile-nav-item ${location.pathname === "/upload" ? "active" : ""}`}
+            className={`gplay-nav-item ${location.pathname === "/upload" ? "active" : ""}`}
             onClick={(e) => { if (!currentUser) { e.preventDefault(); openAuth("signin"); } }}
           >
-            <div className="mobile-upload-circle">
-              <Plus size={20} />
-            </div>
+            <div className="gplay-nav-icon-wrap"><Plus size={20} /></div>
             <span>Upload</span>
           </Link>
-          <Link to="/requests" className={`mobile-nav-item ${location.pathname === "/requests" ? "active" : ""}`}>
-            <MessageSquarePlus size={18} />
-            <span>Requests</span>
+          <Link to="/requests" className={`gplay-nav-item ${location.pathname === "/requests" ? "active" : ""}`}>
+            <div className="gplay-nav-icon-wrap"><Bookmark size={19} /></div>
+            <span>Wishlist</span>
           </Link>
           {currentUser ? (
-            <Link to="/profile" className={`mobile-nav-item ${location.pathname === "/profile" ? "active" : ""}`}>
-              <User size={18} />
+            <Link to="/profile" className={`gplay-nav-item ${location.pathname === "/profile" ? "active" : ""}`}>
+              <div className="gplay-nav-icon-wrap"><User size={19} /></div>
               <span>Profile</span>
             </Link>
           ) : (
-            <button className="mobile-nav-item" onClick={() => openAuth("signin")}>
-              <LogIn size={18} />
+            <button className="gplay-nav-item" onClick={() => openAuth("signin")}>
+              <div className="gplay-nav-icon-wrap"><LogIn size={19} /></div>
               <span>Sign In</span>
             </button>
           )}
@@ -1346,11 +1637,70 @@ function AppShell() {
   );
 }
 
-// ── PAGE 1: PUBLIC LIBRARY ───────────────────────────────────────────────────
+// ── GOOGLE PLAY BOOKS STYLE SHELF COMPONENTS ─────────────────────────────────
+function BookCoverShelfItem({ book, onSelect, size = "standard" }) {
+  const isLarge = size === "large";
+  return (
+    <div className={`book-shelf-item ${isLarge ? "large" : ""}`} onClick={onSelect}>
+      <div className="shelf-cover-wrapper">
+        {book.coverKey ? (
+          <img
+            src={`https://obsidian-covers-12345.s3.amazonaws.com/${book.coverKey}`}
+            className="shelf-cover-img"
+            alt={book.title}
+          />
+        ) : (
+          <div className="shelf-cover-placeholder" style={{ background: `linear-gradient(135deg, ${getCatColor(book.category)}22, #1f1b17)` }}>
+            <BookOpen size={isLarge ? 36 : 28} style={{ color: getCatColor(book.category) }} />
+          </div>
+        )}
+        {book.seriesName && (
+          <div className="shelf-series-badge">
+            {book.seriesName} {book.seriesOrder ? `#${book.seriesOrder}` : ""}
+          </div>
+        )}
+      </div>
+      <div className="shelf-meta">
+        <div className="shelf-title">{book.title}</div>
+        <div className="shelf-sub">
+          {book.author ? `${book.author}` : (book.fileType ? `${book.fileType.toUpperCase()} Edition` : "Ready to read")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HorizontalShelf({ title, subtitle, onSeeAll, books, onSelectBook, size = "standard" }) {
+  if (!books || books.length === 0) return null;
+  return (
+    <div className="shelf-section">
+      <div className="shelf-header" onClick={onSeeAll}>
+        <div>
+          <h2 className="shelf-header-title">{title}</h2>
+          {subtitle && <p className="shelf-header-sub">{subtitle}</p>}
+        </div>
+        <span className="shelf-header-arrow"><ChevronRight size={18} /></span>
+      </div>
+      <div className="shelf-scroll-row">
+        {books.map((book) => (
+          <BookCoverShelfItem
+            key={book.bookId}
+            book={book}
+            size={size}
+            onSelect={() => onSelectBook(book)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── PAGE 1: PUBLIC LIBRARY (GOOGLE PLAY BOOKS STYLE) ─────────────────────────
 function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }) {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("ebooks"); // "ebooks" | "series" | "genres"
   const [filterCat, setFilterCat] = useState("All");
 
   const loadBooks = async () => {
@@ -1362,113 +1712,267 @@ function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin 
 
   useEffect(() => { loadBooks(); }, []);
 
-  const filteredBooks = books.filter((b) => {
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      (b.title || "").toLowerCase().includes(q) ||
-      (b.author || "").toLowerCase().includes(q) ||
-      (b.seriesName || "").toLowerCase().includes(q);
-    const matchesCat = filterCat === "All" || b.category === filterCat;
-    return matchesSearch && matchesCat;
-  });
+  const filteredBooks = useMemo(() => {
+    return books.filter((b) => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        (b.title || "").toLowerCase().includes(q) ||
+        (b.author || "").toLowerCase().includes(q) ||
+        (b.seriesName || "").toLowerCase().includes(q);
+      const matchesCat = filterCat === "All" || b.category === filterCat;
+      return matchesSearch && matchesCat;
+    });
+  }, [books, searchQuery, filterCat]);
+
+  // Group books by category for shelves
+  const categorizedShelves = useMemo(() => {
+    const map = {};
+    CATEGORIES.forEach(cat => { map[cat] = []; });
+    books.forEach(b => {
+      const cat = b.category || "Uncategorized";
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(b);
+    });
+    return map;
+  }, [books]);
+
+  // Group books by series
+  const seriesShelves = useMemo(() => {
+    const map = {};
+    books.forEach(b => {
+      if (b.seriesName && b.seriesName.trim()) {
+        const s = b.seriesName.trim();
+        if (!map[s]) map[s] = [];
+        map[s].push(b);
+      }
+    });
+    Object.keys(map).forEach(s => {
+      map[s].sort((a, b) => (Number(a.seriesOrder) || 999) - (Number(b.seriesOrder) || 999));
+    });
+    return map;
+  }, [books]);
 
   return (
     <div className="page fade-in">
-      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
-        <div>
-          <div className="page-eyebrow">
-            <div className="eyebrow-line" />
-            <span className="eyebrow-text">Community Bookshelf</span>
-          </div>
-          <div className="page-title">Public Library</div>
-          <div className="page-sub">
-            {books.length} {books.length === 1 ? "book" : "books"} shared by readers around the world
-          </div>
+      {/* PLAY BOOKS TOP BANNER */}
+      <div className="playbooks-banner">
+        <div className="playbooks-banner-text">
+          <Sparkles size={14} color="#ffcd5b" style={{ flexShrink: 0 }} />
+          <span>Obsidian Archive: Read community books online in EPUB & PDF</span>
         </div>
-        <button className="icon-btn" onClick={loadBooks} title="Refresh Books">
-          <RefreshCw size={18} className={loading ? "spin" : ""} />
-        </button>
-      </div>
-
-      <div className="toolbar">
-        <button
-          className={`cat-chip ${filterCat === "All" ? "active" : ""}`}
-          onClick={() => setFilterCat("All")}
+        <div
+          className="playbooks-banner-link"
+          onClick={() => currentUser ? navigate("/upload?visibility=public") : onOpenAuth("signin")}
         >
-          All Genres
-        </button>
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            className={`cat-chip ${filterCat === cat ? "active" : ""}`}
-            onClick={() => setFilterCat(cat)}
-          >
-            {cat}
-          </button>
-        ))}
+          Contribute
+        </div>
       </div>
 
-      {loading ? (
-        <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>
-      ) : filteredBooks.length === 0 ? (
-        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 540, margin: "40px auto" }}>
-          <Globe size={48} style={{ color: "#ffcd5b", margin: "0 auto 16px", opacity: 0.6 }} />
-          <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>The Public Library is Empty</h2>
-          <p style={{ color: "#a1a1aa", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
-            No books have been shared in this category yet. Be the first reader to contribute a volume to the community!
-          </p>
-          <button className="btn btn-primary" onClick={() => currentUser ? navigate("/upload?visibility=public") : onOpenAuth("signin")}>
-            <Plus size={16} /> Contribute a Book
-          </button>
-        </div>
-      ) : (
-        <div className="book-grid">
-          {filteredBooks.map((book) => (
-            <div
-              key={book.bookId}
-              className="book-card"
-              onClick={() => navigate(`/books/${book.bookId}`)}
-            >
-              <div className="book-card-top-bar" style={{ background: getCatColor(book.category) }} />
-              <div className="book-card-badge">
-                <Globe size={10} color="#4ADE80" /> Public
+      {/* SEARCH / GENRE OVERRIDE VIEW */}
+      {searchQuery || filterCat !== "All" ? (
+        <div>
+          <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 16px", marginBottom: 16 }}>
+            <div>
+              <div className="page-title" style={{ padding: 0 }}>
+                {filterCat !== "All" ? `${filterCat} Books` : `Search: "${searchQuery}"`}
               </div>
-
-              {book.coverKey ? (
-                <img
-                  src={`https://obsidian-covers-12345.s3.amazonaws.com/${book.coverKey}`}
-                  className="book-card-img"
-                  alt={book.title}
-                />
-              ) : (
-                <div style={{ width: "100%", height: "100%", background: "#17191f", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <BookOpen size={44} style={{ color: getCatColor(book.category), opacity: 0.3 }} />
-                </div>
-              )}
-
-              <div className="book-overlay">
-                <div className="book-title-text">{book.title}</div>
-                <div className="book-author-text">{book.author || "Unknown Author"}</div>
-                {book.seriesName && (
-                  <div className="book-series-tag">
-                    {book.seriesName} {book.seriesOrder ? `#${book.seriesOrder}` : ""}
-                  </div>
-                )}
+              <div className="page-sub" style={{ padding: 0 }}>
+                {filteredBooks.length} {filteredBooks.length === 1 ? "result" : "results"} found
               </div>
             </div>
-          ))}
+            {filterCat !== "All" && (
+              <button className="btn btn-secondary" style={{ height: 32, fontSize: 12, padding: "0 12px" }} onClick={() => setFilterCat("All")}>
+                Reset Filter
+              </button>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>
+          ) : filteredBooks.length === 0 ? (
+            <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 540, margin: "20px auto" }}>
+              <Globe size={48} style={{ color: "#ffcd5b", margin: "0 auto 16px", opacity: 0.6 }} />
+              <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>No Books Found</h2>
+              <p style={{ color: "#a1a1aa", fontSize: 13, marginBottom: 20 }}>
+                Try adjusting your search query or contribute a volume to this category.
+              </p>
+              <button className="btn btn-primary" onClick={() => currentUser ? navigate("/upload?visibility=public") : onOpenAuth("signin")}>
+                <Plus size={16} /> Upload Book
+              </button>
+            </div>
+          ) : (
+            <div className="book-grid">
+              {filteredBooks.map((book) => (
+                <BookCardItem key={book.bookId} book={book} onSelect={() => navigate(`/books/${book.bookId}`)} />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* STANDARD GOOGLE PLAY BOOKS HOME VIEW */
+        <div>
+          {/* FEATURED / RECENT READS HORIZONTAL SHELF */}
+          {books.length > 0 && (
+            <div className="shelf-section" style={{ marginBottom: 20 }}>
+              <div className="shelf-scroll-row" style={{ paddingTop: 4 }}>
+                {books.slice(0, 5).map((book) => (
+                  <BookCoverShelfItem
+                    key={book.bookId}
+                    book={book}
+                    size="large"
+                    onSelect={() => navigate(`/books/${book.bookId}`)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* GOOGLE PLAY BOOKS TABS */}
+          <div className="gplay-tabs-row">
+            <button
+              className={`gplay-tab-btn ${activeTab === "ebooks" ? "active" : ""}`}
+              onClick={() => setActiveTab("ebooks")}
+            >
+              Ebooks
+              {activeTab === "ebooks" && <div className="gplay-tab-indicator" />}
+            </button>
+            <button
+              className={`gplay-tab-btn ${activeTab === "series" ? "active" : ""}`}
+              onClick={() => setActiveTab("series")}
+            >
+              Series & Sagas
+              {activeTab === "series" && <div className="gplay-tab-indicator" />}
+            </button>
+            <button
+              className={`gplay-tab-btn ${activeTab === "genres" ? "active" : ""}`}
+              onClick={() => setActiveTab("genres")}
+            >
+              Genres & Categories
+              {activeTab === "genres" && <div className="gplay-tab-indicator" />}
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>
+          ) : activeTab === "series" ? (
+            /* SERIES VIEW */
+            <div>
+              {Object.keys(seriesShelves).length === 0 ? (
+                <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "40px 20px", maxWidth: 500, margin: "20px auto" }}>
+                  <Layers size={40} style={{ color: "#ffcd5b", margin: "0 auto 12px", opacity: 0.7 }} />
+                  <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>No Series Defined Yet</h3>
+                  <p style={{ color: "#a1a1aa", fontSize: 13 }}>Upload books and tag them with a series name to create grouped collections.</p>
+                </div>
+              ) : (
+                Object.entries(seriesShelves).map(([sName, sBooks]) => (
+                  <HorizontalShelf
+                    key={sName}
+                    title={sName}
+                    subtitle={`${sBooks.length} ${sBooks.length === 1 ? "book" : "books"} in series`}
+                    books={sBooks}
+                    onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+                  />
+                ))
+              )}
+            </div>
+          ) : activeTab === "genres" ? (
+            /* GENRES PILLS & SHELVES */
+            <div>
+              <div className="toolbar" style={{ marginBottom: 16 }}>
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    className={`cat-chip ${filterCat === cat ? "active" : ""}`}
+                    onClick={() => setFilterCat(cat)}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              {CATEGORIES.map((cat) => (
+                categorizedShelves[cat]?.length > 0 ? (
+                  <HorizontalShelf
+                    key={cat}
+                    title={cat}
+                    subtitle={`${categorizedShelves[cat].length} ${categorizedShelves[cat].length === 1 ? "volume" : "volumes"}`}
+                    books={categorizedShelves[cat]}
+                    onSeeAll={() => setFilterCat(cat)}
+                    onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+                  />
+                ) : null
+              ))}
+            </div>
+          ) : (
+            /* DEFAULT EBOOKS SHELVES VIEW (Like Google Play Books) */
+            <div>
+              {/* Ebooks for you shelf */}
+              <HorizontalShelf
+                title="Ebooks for you"
+                subtitle="Community recommendations"
+                books={books}
+                onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+              />
+
+              {/* Sci-Fi Shelf */}
+              {categorizedShelves["Sci-Fi"]?.length > 0 && (
+                <HorizontalShelf
+                  title="Sci-Fi & Cyberpunk"
+                  subtitle="Futuristic worlds and cosmic sagas"
+                  books={categorizedShelves["Sci-Fi"]}
+                  onSeeAll={() => setFilterCat("Sci-Fi")}
+                  onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+                />
+              )}
+
+              {/* Fantasy Shelf */}
+              {categorizedShelves["Fantasy"]?.length > 0 && (
+                <HorizontalShelf
+                  title="Epic Fantasy"
+                  subtitle="Mythical realms and legendary heroes"
+                  books={categorizedShelves["Fantasy"]}
+                  onSeeAll={() => setFilterCat("Fantasy")}
+                  onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+                />
+              )}
+
+              {/* Fiction & Classics Shelf */}
+              {categorizedShelves["Fiction"]?.length > 0 && (
+                <HorizontalShelf
+                  title="Fiction & Novels"
+                  subtitle="Captivating stories and narratives"
+                  books={categorizedShelves["Fiction"]}
+                  onSeeAll={() => setFilterCat("Fiction")}
+                  onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+                />
+              )}
+
+              {/* Other active categories */}
+              {CATEGORIES.filter(c => !["Sci-Fi", "Fantasy", "Fiction"].includes(c)).map((cat) => (
+                categorizedShelves[cat]?.length > 0 ? (
+                  <HorizontalShelf
+                    key={cat}
+                    title={cat}
+                    subtitle={`${categorizedShelves[cat].length} ${categorizedShelves[cat].length === 1 ? "book" : "books"}`}
+                    books={categorizedShelves[cat]}
+                    onSeeAll={() => setFilterCat(cat)}
+                    onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+                  />
+                ) : null
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-// ── PAGE 2: MY COLLECTION (WITH SERIES GROUPING) ─────────────────────────────
+// ── PAGE 2: MY COLLECTION (GOOGLE PLAY BOOKS STYLE) ──────────────────────────
 function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }) {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState("all"); // "all" | "series"
+  const [activeTab, setActiveTab] = useState("all"); // "all" | "series"
 
   const loadBooks = async () => {
     if (!currentUser) return;
@@ -1529,7 +2033,6 @@ function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }
       }
     });
 
-    // Sort books within each series by seriesOrder
     Object.keys(groups).forEach((sName) => {
       groups[sName].sort((a, b) => (Number(a.seriesOrder) || 999) - (Number(b.seriesOrder) || 999));
     });
@@ -1539,94 +2042,92 @@ function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }
 
   return (
     <div className="page fade-in">
-      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
-        <div>
-          <div className="page-eyebrow">
-            <div className="eyebrow-line" />
-            <span className="eyebrow-text">Personal Sanctuary</span>
-          </div>
-          <div className="page-title">My Collection</div>
-          <div className="page-sub">
-            {books.length} {books.length === 1 ? "book" : "books"} on your bookshelf
-          </div>
+      {/* BANNER */}
+      <div className="playbooks-banner">
+        <div className="playbooks-banner-text">
+          <Library size={14} color="#ffcd5b" style={{ flexShrink: 0 }} />
+          <span>{books.length} {books.length === 1 ? "volume" : "volumes"} in your personal collection</span>
         </div>
+        <div className="playbooks-banner-link" onClick={() => navigate("/upload?visibility=private")}>
+          Add Book
+        </div>
+      </div>
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          {/* VIEW TOGGLE */}
-          <div className="view-toggle">
-            <button
-              className={`toggle-btn ${viewMode === "all" ? "active" : ""}`}
-              onClick={() => setViewMode("all")}
-            >
-              <BookOpen size={14} /> All Books
-            </button>
-            <button
-              className={`toggle-btn ${viewMode === "series" ? "active" : ""}`}
-              onClick={() => setViewMode("series")}
-            >
-              <Layers size={14} /> By Series
-            </button>
-          </div>
-          <button className="icon-btn" onClick={loadBooks} title="Refresh Collection">
-            <RefreshCw size={18} className={loading ? "spin" : ""} />
-          </button>
-        </div>
+      {/* GOOGLE PLAY BOOKS STYLE TABS */}
+      <div className="gplay-tabs-row">
+        <button
+          className={`gplay-tab-btn ${activeTab === "all" ? "active" : ""}`}
+          onClick={() => setActiveTab("all")}
+        >
+          All Volumes
+          {activeTab === "all" && <div className="gplay-tab-indicator" />}
+        </button>
+        <button
+          className={`gplay-tab-btn ${activeTab === "series" ? "active" : ""}`}
+          onClick={() => setActiveTab("series")}
+        >
+          By Series
+          {activeTab === "series" && <div className="gplay-tab-indicator" />}
+        </button>
       </div>
 
       {loading ? (
         <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>
       ) : filteredBooks.length === 0 ? (
-        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 540, margin: "40px auto" }}>
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 540, margin: "20px auto" }}>
           <Library size={48} style={{ color: "#ffcd5b", margin: "0 auto 16px", opacity: 0.6 }} />
-          <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Your Collection is Empty</h2>
-          <p style={{ color: "#a1a1aa", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Your Collection is Empty</h2>
+          <p style={{ color: "#a1a1aa", fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
             Keep your favorite novels, private manuscripts, or entire series neatly organized here.
           </p>
           <button className="btn btn-primary" onClick={() => navigate("/upload?visibility=private")}>
             <Plus size={16} /> Add to Collection
           </button>
         </div>
-      ) : viewMode === "series" ? (
-        /* SERIES GROUPED VIEW */
+      ) : activeTab === "series" ? (
+        /* SERIES GROUPED SHELVES */
         <div>
           {Object.entries(seriesGroups.groups).map(([sName, sBooks]) => (
-            <div key={sName} className="series-section">
-              <div className="series-header">
-                <div className="series-title">
-                  <Layers size={20} /> {sName}
-                </div>
-                <div className="series-count">{sBooks.length} {sBooks.length === 1 ? "Volume" : "Volumes"}</div>
-              </div>
-              <div className="book-grid">
-                {sBooks.map((book) => (
-                  <BookCardItem key={book.bookId} book={book} onSelect={() => navigate(`/books/${book.bookId}`)} />
-                ))}
-              </div>
-            </div>
+            <HorizontalShelf
+              key={sName}
+              title={sName}
+              subtitle={`${sBooks.length} ${sBooks.length === 1 ? "Volume" : "Volumes"} in series`}
+              books={sBooks}
+              onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+            />
           ))}
 
           {seriesGroups.standalones.length > 0 && (
-            <div className="series-section">
-              <div className="series-header">
-                <div className="series-title">
-                  <BookOpen size={20} /> Standalone Books
-                </div>
-                <div className="series-count">{seriesGroups.standalones.length} {seriesGroups.standalones.length === 1 ? "Book" : "Books"}</div>
-              </div>
-              <div className="book-grid">
-                {seriesGroups.standalones.map((book) => (
-                  <BookCardItem key={book.bookId} book={book} onSelect={() => navigate(`/books/${book.bookId}`)} />
-                ))}
-              </div>
-            </div>
+            <HorizontalShelf
+              title="Standalone Books"
+              subtitle={`${seriesGroups.standalones.length} ${seriesGroups.standalones.length === 1 ? "Book" : "Books"}`}
+              books={seriesGroups.standalones}
+              onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+            />
           )}
         </div>
       ) : (
-        /* ALL BOOKS FLAT GRID */
-        <div className="book-grid">
-          {filteredBooks.map((book) => (
-            <BookCardItem key={book.bookId} book={book} onSelect={() => navigate(`/books/${book.bookId}`)} />
-          ))}
+        /* ALL BOOKS SHELF + GRID */
+        <div>
+          {/* Top Continue Reading shelf */}
+          <HorizontalShelf
+            title="Continue Reading"
+            subtitle="Recently accessed from your bookshelf"
+            books={filteredBooks.slice(0, 6)}
+            size="large"
+            onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+          />
+
+          {/* Complete Library Grid */}
+          <div className="shelf-header" style={{ marginTop: 24, marginBottom: 8 }}>
+            <h2 className="shelf-header-title">All Books</h2>
+            <span className="shelf-header-sub">{filteredBooks.length} volumes</span>
+          </div>
+          <div className="book-grid">
+            {filteredBooks.map((book) => (
+              <BookCardItem key={book.bookId} book={book} onSelect={() => navigate(`/books/${book.bookId}`)} />
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -1652,7 +2153,7 @@ function BookCardItem({ book, onSelect }) {
           alt={book.title}
         />
       ) : (
-        <div style={{ width: "100%", height: "100%", background: "#17191f", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: "100%", height: "100%", background: "#1f1b17", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <BookOpen size={44} style={{ color: getCatColor(book.category), opacity: 0.3 }} />
         </div>
       )}
