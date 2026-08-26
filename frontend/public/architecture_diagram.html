@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obsidian Archive v2 — Architecture Diagram</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0f1115;
+      color: #e2e2e6;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      max-width: 800px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 999px;
+      background: rgba(255, 205, 91, 0.12);
+      border: 1px solid rgba(255, 205, 91, 0.3);
+      color: #ffcd5b;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    p {
+      color: #a1a1aa;
+      font-size: 15px;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: #ffcd5b;
+      color: #1a1300;
+      box-shadow: 0 4px 20px rgba(255, 205, 91, 0.25);
+    }
+    .btn-primary:hover {
+      background: #ffd875;
+      transform: translateY(-2px);
+    }
+    .btn-secondary {
+      background: #1e2025;
+      color: #e2e2e6;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .btn-secondary:hover {
+      background: #272a30;
+      border-color: #ffcd5b;
+      transform: translateY(-2px);
+    }
+
+    .diagram-card {
+      background: #16181d;
+      border: 1px solid rgba(255, 205, 91, 0.18);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      max-width: 1200px;
+      width: 100%;
+      overflow-x: auto;
+      display: flex;
+      justify-content: center;
+    }
+
+    #diagram-container svg {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge">Architecture Blueprint</div>
+    <h1>Obsidian Archive v2 System Architecture</h1>
+    <p>Multi-tenant cloud architecture with Cognito Auth, SQS decoupled workers, DynamoDB GSIs, and automated S3 lifecycle cleanup.</p>
+  </div>
+
+  <div class="action-bar">
+    <button class="btn btn-primary" onclick="downloadPNG()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      Download High-Res PNG
+    </button>
+    <button class="btn btn-secondary" onclick="downloadSVG()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+      Download Vector SVG
+    </button>
+  </div>
+
+  <div class="diagram-card">
+    <div id="diagram-container" class="mermaid">
+flowchart TB
+    %% Client Tier
+    subgraph Client ["Client Layer (Amplify Hosting)"]
+        SPA["React 18 + Vite SPA<br/>(Obsidian Archive)"]
+        AuthUI["Amplify Auth Module"]
+        SPA --- AuthUI
+    end
+
+    %% Auth Provider
+    subgraph Auth ["Authentication Tier"]
+        Cognito["Amazon Cognito User Pool<br/>(obsidian-archive-users)"]
+        CognitoApp["User Pool Client<br/>(obsidian-archive-web-client)"]
+        Cognito --- CognitoApp
+    end
+
+    %% API Tier
+    subgraph APILayer ["API Gateway (prod stage)"]
+        Authorizer["Cognito Authorizer<br/>(Bearer Token Validation)"]
+        PublicRoutes["Public Routes<br/>(GET /books)"]
+        ProtectedRoutes["Protected Routes<br/>(POST/PUT/DELETE /books, /upload, /requests, /profile)"]
+    end
+
+    %% Compute Tier
+    subgraph Lambdas ["Compute Layer (AWS Lambda - Python 3.12)"]
+        AuthTriggerFn["auth_trigger.py<br/>(Post-Confirmation Trigger)"]
+        WriterFn["writer.py<br/>(Dispatches writes)"]
+        ConsumerFn["consumer.py<br/>(SQS Worker + Cleanup)"]
+        ReaderFn["reader.py<br/>(Public / Private Queries)"]
+        UploadFn["upload.py<br/>(S3 Presigned URLs)"]
+        ProfileFn["profile.py<br/>(User Preferences)"]
+    end
+
+    %% Asynchronous Messaging
+    subgraph Messaging ["Message Queue Tier"]
+        SQS["Amazon SQS<br/>(obsidian-queue)"]
+        DLQ["Dead Letter Queue<br/>(obsidian-dlq)"]
+        SQS -->|Failed 3x| DLQ
+    end
+
+    %% Storage & Database Tier
+    subgraph Database ["Database Layer (Amazon DynamoDB)"]
+        BooksTable[("obsidian-books<br/>PK: bookId (UUID)<br/>GSIs: OwnerIndex, VisibilityIndex")]
+        RequestsTable[("obsidian-requests<br/>PK: requestId<br/>GSI: StatusIndex")]
+        ProfilesTable[("obsidian-profiles<br/>PK: userId")]
+    end
+
+    subgraph Storage ["Object Storage (Amazon S3)"]
+        CoversBucket["obsidian-covers-12345<br/>(Public Read - Images)"]
+        FilesBucket["obsidian-files-12345<br/>(Private - PDF/EPUB Docs)"]
+    end
+
+    %% Connections
+    AuthUI <-->|Sign Up / Sign In / Tokens| Cognito
+    Cognito -->|Post-Confirmation Event| AuthTriggerFn
+    AuthTriggerFn -->|Auto-Create Profile| ProfilesTable
+
+    SPA -->|Public Requests| PublicRoutes
+    SPA -->|Authenticated Requests + JWT| ProtectedRoutes
+    ProtectedRoutes --> Authorizer
+    Authorizer -.->|Validate| Cognito
+
+    PublicRoutes --> ReaderFn
+    ProtectedRoutes --> WriterFn
+    ProtectedRoutes --> ReaderFn
+    ProtectedRoutes --> UploadFn
+    ProtectedRoutes --> ProfileFn
+
+    WriterFn -->|Enqueue Task| SQS
+    SQS -->|Batch Trigger| ConsumerFn
+
+    ConsumerFn -->|Write / Update / Delete| BooksTable
+    ConsumerFn -->|Write / Update / Delete| RequestsTable
+    ConsumerFn -->|Purge Orphaned Covers| CoversBucket
+    ConsumerFn -->|Purge Orphaned Docs| FilesBucket
+
+    ReaderFn -->|Read| BooksTable
+    ReaderFn -->|Read| RequestsTable
+    ProfileFn <-->|Read / Update| ProfilesTable
+
+    UploadFn -->|Generate Presigned PUT/GET| CoversBucket
+    UploadFn -->|Generate Presigned PUT/GET| FilesBucket
+    SPA -->|Direct Upload/Download via URL| CoversBucket
+    SPA -->|Direct Upload/Download via URL| FilesBucket
+    </div>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#16181d',
+        primaryColor: '#282a30',
+        primaryTextColor: '#ffcd5b',
+        primaryBorderColor: '#ffcd5b',
+        lineColor: '#ffcd5b',
+        secondaryColor: '#1e2025',
+        tertiaryColor: '#111317'
+      }
+    });
+
+    function downloadSVG() {
+      const svg = document.querySelector('#diagram-container svg');
+      if (!svg) return alert("Diagram is still rendering...");
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+      const svgUrl = URL.createObjectURL(svgBlob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = svgUrl;
+      downloadLink.download = 'obsidian-archive-v2-architecture.svg';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
+
+    function downloadPNG() {
+      const svg = document.querySelector('#diagram-container svg');
+      if (!svg) return alert("Diagram is still rendering...");
+      
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const URL = window.URL || window.webkitURL || window;
+      const blobURL = URL.createObjectURL(svgBlob);
+      
+      const image = new Image();
+      image.onload = () => {
+        const scale = 2; // 2x resolution
+        const canvas = document.createElement('canvas');
+        canvas.width = (svg.clientWidth || 1200) * scale;
+        canvas.height = (svg.clientHeight || 900) * scale;
+        const context = canvas.getContext('2d');
+        
+        context.fillStyle = '#0f1115';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.scale(scale, scale);
+        context.drawImage(image, 0, 0);
+        
+        const png = canvas.toDataURL('image/png');
+        const downloadLink = document.createElement('a');
+        downloadLink.href = png;
+        downloadLink.download = 'obsidian-archive-v2-architecture.png';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+      };
+      image.src = blobURL;
+    }
+  </script>
+</body>
+</html>
