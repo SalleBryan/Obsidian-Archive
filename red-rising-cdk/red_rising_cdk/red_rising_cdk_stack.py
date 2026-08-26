@@ -9,9 +9,7 @@ from aws_cdk import (
     aws_lambda_event_sources as lambda_events,
     aws_apigateway as apigw,
     aws_s3 as s3,
-    aws_s3_deployment as s3deploy,
-    aws_cloudfront as cf,
-    aws_cloudfront_origins as origins,
+    aws_cognito as cognito,
     aws_iam as iam,
 )
 from constructs import Construct
@@ -22,39 +20,144 @@ class RedRisingCdkStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # ── 1. DynamoDB ────────────────────────────────────────────────────
-        table = dynamodb.Table(
-            self, "RedRisingTable",
-            table_name="red-rising-table",
-            partition_key=dynamodb.Attribute(
-                name="book-num",
-                type=dynamodb.AttributeType.NUMBER,
+        # ══════════════════════════════════════════════════════════════════════
+        # 1. COGNITO — User Pool + Google Identity Provider
+        # ══════════════════════════════════════════════════════════════════════
+        user_pool = cognito.UserPool(
+            self, "ObsidianUserPool",
+            user_pool_name="obsidian-archive-users",
+            self_sign_up_enabled=True,
+            sign_in_aliases=cognito.SignInAliases(email=True),
+            auto_verify=cognito.AutoVerifiedAttrs(email=True),
+            standard_attributes=cognito.StandardAttributes(
+                email=cognito.StandardAttribute(required=True, mutable=True),
+                fullname=cognito.StandardAttribute(required=False, mutable=True),
             ),
-            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.RETAIN,   
+            password_policy=cognito.PasswordPolicy(
+                min_length=8,
+                require_lowercase=True,
+                require_uppercase=True,
+                require_digits=True,
+                require_symbols=False,
+            ),
+            account_recovery=cognito.AccountRecovery.EMAIL_ONLY,
+            removal_policy=RemovalPolicy.RETAIN,
         )
 
-        # ── 2. SQS Queue + Dead Letter Queue ───────────────────────────────
+        # Google Identity Provider (user must set env vars for this later)
+        # Placeholder — requires Google OAuth Client ID & Secret in Secrets Manager
+        # We'll output the User Pool ID so they can add Google via Console if needed
+
+        user_pool_client = cognito.UserPoolClient(
+            self, "ObsidianUserPoolClient",
+            user_pool=user_pool,
+            user_pool_client_name="obsidian-archive-web-client",
+            auth_flows=cognito.AuthFlow(
+                user_password=True,
+                user_srp=True,
+            ),
+            o_auth=cognito.OAuthSettings(
+                flows=cognito.OAuthFlows(
+                    authorization_code_grant=True,
+                    implicit_code_grant=True,
+                ),
+                scopes=[
+                    cognito.OAuthScope.EMAIL,
+                    cognito.OAuthScope.OPENID,
+                    cognito.OAuthScope.PROFILE,
+                ],
+                callback_urls=["http://localhost:5173/", "https://main.d2nheaqmsqnih6.amplifyapp.com/"],
+                logout_urls=["http://localhost:5173/", "https://main.d2nheaqmsqnih6.amplifyapp.com/"],
+            ),
+            prevent_user_existence_errors=True,
+        )
+
+        user_pool_domain = user_pool.add_domain(
+            "ObsidianUserPoolDomain",
+            cognito_domain=cognito.CognitoDomainOptions(
+                domain_prefix="obsidian-archive"
+            ),
+        )
+
+        # ══════════════════════════════════════════════════════════════════════
+        # 2. DYNAMODB — Books, Profiles, Requests tables
+        # ══════════════════════════════════════════════════════════════════════
+        books_table = dynamodb.Table(
+            self, "BooksTable",
+            table_name="obsidian-books",
+            partition_key=dynamodb.Attribute(
+                name="bookId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+        books_table.add_global_secondary_index(
+            index_name="OwnerIndex",
+            partition_key=dynamodb.Attribute(name="ownerId", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="createdAt", type=dynamodb.AttributeType.STRING),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+        books_table.add_global_secondary_index(
+            index_name="VisibilityIndex",
+            partition_key=dynamodb.Attribute(name="visibility", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="createdAt", type=dynamodb.AttributeType.STRING),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        profiles_table = dynamodb.Table(
+            self, "ProfilesTable",
+            table_name="obsidian-profiles",
+            partition_key=dynamodb.Attribute(
+                name="userId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+
+        requests_table = dynamodb.Table(
+            self, "RequestsTable",
+            table_name="obsidian-requests",
+            partition_key=dynamodb.Attribute(
+                name="requestId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+        requests_table.add_global_secondary_index(
+            index_name="StatusIndex",
+            partition_key=dynamodb.Attribute(name="status", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="createdAt", type=dynamodb.AttributeType.STRING),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # ══════════════════════════════════════════════════════════════════════
+        # 3. SQS — Main queue + Dead Letter Queue
+        # ══════════════════════════════════════════════════════════════════════
         dlq = sqs.Queue(
-            self, "RedRisingDLQ",
-            queue_name="red-rising-dlq",
+            self, "ObsidianDLQ",
+            queue_name="obsidian-dlq",
             retention_period=Duration.days(14),
         )
 
         queue = sqs.Queue(
-            self, "RedRisingQueue",
-            queue_name="red-rising-queue",
-            visibility_timeout=Duration.seconds(30),
+            self, "ObsidianQueue",
+            queue_name="obsidian-queue",
+            visibility_timeout=Duration.seconds(60),
             dead_letter_queue=sqs.DeadLetterQueue(
                 max_receive_count=3,
                 queue=dlq,
             ),
         )
 
-        # ── 3. S3 — Images Bucket (public) ─────────────────────────────────
-        images_bucket = s3.Bucket(
-            self, "ImagesBucket",
-            bucket_name="bryans-library-images-12345",
+        # ══════════════════════════════════════════════════════════════════════
+        # 4. S3 — Covers bucket (public) + Files bucket (private)
+        # ══════════════════════════════════════════════════════════════════════
+        covers_bucket = s3.Bucket(
+            self, "CoversBucket",
+            bucket_name="obsidian-covers-12345",
             cors=[s3.CorsRule(
                 allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT],
                 allowed_origins=["*"],
@@ -71,63 +174,124 @@ class RedRisingCdkStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
+        files_bucket = s3.Bucket(
+            self, "FilesBucket",
+            bucket_name="obsidian-files-12345",
+            cors=[s3.CorsRule(
+                allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT],
+                allowed_origins=["*"],
+                allowed_headers=["*"],
+            )],
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
 
-        # ── 5. Lambda Functions ─────────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        # 5. LAMBDA FUNCTIONS
+        # ══════════════════════════════════════════════════════════════════════
         shared_code = _lambda.Code.from_asset("lambda")
 
-        # 5a. Writer: API GW POST /books to SQS
+        common_env = {
+            "BOOKS_TABLE": books_table.table_name,
+            "PROFILES_TABLE": profiles_table.table_name,
+            "REQUESTS_TABLE": requests_table.table_name,
+            "COVERS_BUCKET": covers_bucket.bucket_name,
+            "FILES_BUCKET": files_bucket.bucket_name,
+        }
+
+        # 5a. Writer: API Gateway POST → SQS
         writer_fn = _lambda.Function(
             self, "WriterFn",
-            function_name="red-rising-writer",
+            function_name="obsidian-writer",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="writer.lambda_handler",
             code=shared_code,
             timeout=Duration.seconds(10),
-            environment={"QUEUE_URL": queue.queue_url},
+            environment={**common_env, "QUEUE_URL": queue.queue_url},
         )
         queue.grant_send_messages(writer_fn)
 
-        # 5b. Consumer: SQS to DynamoDB
+        # 5b. Consumer: SQS → DynamoDB + S3 cleanup
         consumer_fn = _lambda.Function(
             self, "ConsumerFn",
-            function_name="red-rising-consumer",
+            function_name="obsidian-consumer",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="consumer.lambda_handler",
             code=shared_code,
-            timeout=Duration.seconds(30),
+            timeout=Duration.seconds(60),
+            environment=common_env,
         )
-        table.grant_read_write_data(consumer_fn)
+        books_table.grant_read_write_data(consumer_fn)
+        profiles_table.grant_read_write_data(consumer_fn)
+        requests_table.grant_read_write_data(consumer_fn)
+        covers_bucket.grant_read_write(consumer_fn)
+        files_bucket.grant_read_write(consumer_fn)
         consumer_fn.add_event_source(
-            lambda_events.SqsEventSource(queue, batch_size=10)
+            lambda_events.SqsEventSource(queue, batch_size=5)
         )
 
-        # 5c. Reader: GET /books → DynamoDB scan
+        # 5c. Reader: API Gateway GET → DynamoDB reads
         reader_fn = _lambda.Function(
             self, "ReaderFn",
-            function_name="red-rising-reader",
+            function_name="obsidian-reader",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="reader.lambda_handler",
             code=shared_code,
             timeout=Duration.seconds(10),
+            environment=common_env,
         )
-        table.grant_read_data(reader_fn)
+        books_table.grant_read_data(reader_fn)
+        requests_table.grant_read_data(reader_fn)
 
-        # 5d. Presigned URL: POST /upload → S3
-        presigned_fn = _lambda.Function(
-            self, "PresignedFn",
-            function_name="red-rising-presigned",
+        # 5d. Upload: Presigned URLs for covers and book files
+        upload_fn = _lambda.Function(
+            self, "UploadFn",
+            function_name="obsidian-upload",
             runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="presigned.lambda_handler",
+            handler="upload.lambda_handler",
             code=shared_code,
             timeout=Duration.seconds(10),
-            environment={"BUCKET_NAME": images_bucket.bucket_name},
+            environment=common_env,
         )
-        images_bucket.grant_put(presigned_fn)
+        covers_bucket.grant_put(upload_fn)
+        files_bucket.grant_put(upload_fn)
 
-        # ── 6. API Gateway ──────────────────────────────────────────────────
+        # 5e. Profile: User profile CRUD
+        profile_fn = _lambda.Function(
+            self, "ProfileFn",
+            function_name="obsidian-profile",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="profile.lambda_handler",
+            code=shared_code,
+            timeout=Duration.seconds(10),
+            environment=common_env,
+        )
+        profiles_table.grant_read_write_data(profile_fn)
+
+        # 5f. Auth Trigger: Cognito post-confirmation → create profile
+        auth_trigger_fn = _lambda.Function(
+            self, "AuthTriggerFn",
+            function_name="obsidian-auth-trigger",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="auth_trigger.lambda_handler",
+            code=shared_code,
+            timeout=Duration.seconds(10),
+            environment=common_env,
+        )
+        profiles_table.grant_write_data(auth_trigger_fn)
+
+        # Connect auth trigger to Cognito
+        user_pool.add_trigger(
+            cognito.UserPoolOperation.POST_CONFIRMATION,
+            auth_trigger_fn,
+        )
+
+        # ══════════════════════════════════════════════════════════════════════
+        # 6. API GATEWAY — with Cognito Authorizer
+        # ══════════════════════════════════════════════════════════════════════
         api = apigw.RestApi(
-            self, "RedRisingApi",
-            rest_api_name="red-rising-api",
+            self, "ObsidianApi",
+            rest_api_name="obsidian-archive-api",
             deploy_options=apigw.StageOptions(stage_name="prod"),
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=apigw.Cors.ALL_ORIGINS,
@@ -136,23 +300,105 @@ class RedRisingCdkStack(Stack):
             ),
         )
 
-        # /books
+        cognito_authorizer = apigw.CognitoUserPoolsAuthorizer(
+            self, "CognitoAuthorizer",
+            cognito_user_pools=[user_pool],
+            authorizer_name="ObsidianCognitoAuth",
+        )
+
+
+        # ── /books (public GET, authenticated POST) ──
         books = api.root.add_resource("books")
-        books.add_method("GET",  apigw.LambdaIntegration(reader_fn))
-        books.add_method("POST", apigw.LambdaIntegration(writer_fn))
+        books.add_method("GET", apigw.LambdaIntegration(reader_fn))
+        books.add_method("POST", apigw.LambdaIntegration(writer_fn),
+                         authorizer=cognito_authorizer,
+                         authorization_type=apigw.AuthorizationType.COGNITO)
 
-        # /upload
-        upload = api.root.add_resource("upload")
-        upload.add_method("POST", apigw.LambdaIntegration(presigned_fn))
+        # ── /books/mine (authenticated GET) ──
+        books_mine = books.add_resource("mine")
+        books_mine.add_method("GET", apigw.LambdaIntegration(reader_fn),
+                              authorizer=cognito_authorizer,
+                              authorization_type=apigw.AuthorizationType.COGNITO)
 
+        # ── /books/{bookId} (public GET, authenticated PUT/DELETE) ──
+        book_by_id = books.add_resource("{bookId}")
+        book_by_id.add_method("GET", apigw.LambdaIntegration(reader_fn))
+        book_by_id.add_method("PUT", apigw.LambdaIntegration(writer_fn),
+                              authorizer=cognito_authorizer,
+                              authorization_type=apigw.AuthorizationType.COGNITO)
+        book_by_id.add_method("DELETE", apigw.LambdaIntegration(writer_fn),
+                              authorizer=cognito_authorizer,
+                              authorization_type=apigw.AuthorizationType.COGNITO)
 
-        # ── 9. Stack Outputs ────────────────────────────────────────────────
+        # ── /books/{bookId}/read (conditional — handled in Lambda) ──
+        book_read = book_by_id.add_resource("read")
+        book_read.add_method("GET", apigw.LambdaIntegration(upload_fn))
+
+        # ── /upload/cover (authenticated) ──
+        upload_res = api.root.add_resource("upload")
+        upload_cover = upload_res.add_resource("cover")
+        upload_cover.add_method("POST", apigw.LambdaIntegration(upload_fn),
+                                authorizer=cognito_authorizer,
+                                authorization_type=apigw.AuthorizationType.COGNITO)
+
+        # ── /upload/book (authenticated) ──
+        upload_book = upload_res.add_resource("book")
+        upload_book.add_method("POST", apigw.LambdaIntegration(upload_fn),
+                               authorizer=cognito_authorizer,
+                               authorization_type=apigw.AuthorizationType.COGNITO)
+
+        # ── /requests (authenticated GET/POST) ──
+        requests_res = api.root.add_resource("requests")
+        requests_res.add_method("GET", apigw.LambdaIntegration(reader_fn),
+                                authorizer=cognito_authorizer,
+                                authorization_type=apigw.AuthorizationType.COGNITO)
+        requests_res.add_method("POST", apigw.LambdaIntegration(writer_fn),
+                                authorizer=cognito_authorizer,
+                                authorization_type=apigw.AuthorizationType.COGNITO)
+
+        # ── /requests/{requestId} (authenticated PUT/DELETE) ──
+        request_by_id = requests_res.add_resource("{requestId}")
+        request_by_id.add_method("PUT", apigw.LambdaIntegration(writer_fn),
+                                 authorizer=cognito_authorizer,
+                                 authorization_type=apigw.AuthorizationType.COGNITO)
+        request_by_id.add_method("DELETE", apigw.LambdaIntegration(writer_fn),
+                                 authorizer=cognito_authorizer,
+                                 authorization_type=apigw.AuthorizationType.COGNITO)
+
+        # ── /profile (authenticated GET/PUT) ──
+        profile_res = api.root.add_resource("profile")
+        profile_res.add_method("GET", apigw.LambdaIntegration(profile_fn),
+                               authorizer=cognito_authorizer,
+                               authorization_type=apigw.AuthorizationType.COGNITO)
+        profile_res.add_method("PUT", apigw.LambdaIntegration(profile_fn),
+                               authorizer=cognito_authorizer,
+                               authorization_type=apigw.AuthorizationType.COGNITO)
+
+        # ══════════════════════════════════════════════════════════════════════
+        # 7. STACK OUTPUTS
+        # ══════════════════════════════════════════════════════════════════════
         CfnOutput(self, "ApiUrl",
             value=api.url,
-            description="Paste this into App.jsx as API_BASE (without trailing slash)")
+            description="API Gateway base URL")
 
-        CfnOutput(self, "ImagesBucketName",
-            value=images_bucket.bucket_name)
+        CfnOutput(self, "UserPoolId",
+            value=user_pool.user_pool_id,
+            description="Cognito User Pool ID — needed in frontend Amplify config")
+
+        CfnOutput(self, "UserPoolClientId",
+            value=user_pool_client.user_pool_client_id,
+            description="Cognito App Client ID — needed in frontend Amplify config")
+
+        CfnOutput(self, "UserPoolDomain",
+            value=user_pool_domain.domain_name,
+            description="Cognito hosted UI domain prefix")
+
+        CfnOutput(self, "CoversBucketName",
+            value=covers_bucket.bucket_name)
+
+        CfnOutput(self, "FilesBucketName",
+            value=files_bucket.bucket_name)
+
         CfnOutput(self, "DLQUrl",
             value=dlq.queue_url,
             description="Dead Letter Queue — inspect failed messages here")
