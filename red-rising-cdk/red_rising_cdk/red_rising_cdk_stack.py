@@ -1,7 +1,9 @@
+import os
 from aws_cdk import (
     Stack,
     Duration,
     RemovalPolicy,
+    SecretValue,
     CfnOutput,
     aws_dynamodb as dynamodb,
     aws_sqs as sqs,
@@ -29,6 +31,17 @@ class RedRisingCdkStack(Stack):
             self_sign_up_enabled=True,
             sign_in_aliases=cognito.SignInAliases(email=True),
             auto_verify=cognito.AutoVerifiedAttrs(email=True),
+            user_verification=cognito.UserVerificationConfig(
+                email_subject="[Obsidian Archive] Your Verification Code: {####}",
+                email_style=cognito.VerificationEmailStyle.CODE,
+                email_body=(
+                    "Welcome to Obsidian Archive — The Universal Knowledge Vault.\n\n"
+                    "Your 6-digit confirmation code is:\n\n"
+                    "{####}\n\n"
+                    "Enter this code on the platform to verify your account and unlock your personal library vault.\n\n"
+                    "— Obsidian Archive Team | Digisol Group"
+                ),
+            ),
             standard_attributes=cognito.StandardAttributes(
                 email=cognito.StandardAttribute(required=True, mutable=True),
                 fullname=cognito.StandardAttribute(required=False, mutable=True),
@@ -44,14 +57,30 @@ class RedRisingCdkStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
-        # Google Identity Provider (user must set env vars for this later)
-        # Placeholder — requires Google OAuth Client ID & Secret in Secrets Manager
-        # We'll output the User Pool ID so they can add Google via Console if needed
+        # Google Identity Provider (activated if env vars are present, or via Console)
+        google_client_id = os.environ.get("GOOGLE_CLIENT_ID")
+        google_client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+        supported_idps = [cognito.UserPoolClientIdentityProvider.COGNITO]
+
+        if google_client_id and google_client_secret:
+            google_idp = cognito.UserPoolIdentityProviderGoogle(
+                self, "GoogleIdP",
+                user_pool=user_pool,
+                client_id=google_client_id,
+                client_secret_value=SecretValue.unsafe_plain_text(google_client_secret),
+                attribute_mapping=cognito.AttributeMapping(
+                    email=cognito.ProviderAttribute.GOOGLE_EMAIL,
+                    fullname=cognito.ProviderAttribute.GOOGLE_NAME,
+                ),
+                scopes=["profile", "email", "openid"],
+            )
+            supported_idps.append(cognito.UserPoolClientIdentityProvider.GOOGLE)
 
         user_pool_client = cognito.UserPoolClient(
             self, "ObsidianUserPoolClient",
             user_pool=user_pool,
             user_pool_client_name="obsidian-archive-web-client",
+            supported_identity_providers=supported_idps,
             auth_flows=cognito.AuthFlow(
                 user_password=True,
                 user_srp=True,

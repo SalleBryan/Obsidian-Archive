@@ -31,19 +31,23 @@ def process_message(body):
         book_id = str(uuid.uuid4())
         item = {
             'bookId': book_id,
-            'ownerId': body.get('ownerId'),
-            'title': body.get('title'),
-            'author': body.get('author'),
-            'category': body.get('category'),
-            'description': body.get('description'),
-            'coverKey': body.get('coverKey'),
-            'fileKey': body.get('fileKey'),
-            'fileType': body.get('fileType'),
-            'fileSizeBytes': body.get('fileSizeBytes'),
-            'visibility': body.get('visibility', 'private'),
+            'ownerId': body.get('ownerId', ''),
+            'title': body.get('title', 'Untitled'),
+            'author': body.get('author', 'Unknown Author'),
+            'category': body.get('category', 'Uncategorized'),
+            'description': body.get('description', ''),
+            'visibility': body.get('visibility', 'public'),
             'createdAt': now,
             'updatedAt': now
         }
+        if body.get('coverKey'):
+            item['coverKey'] = body['coverKey']
+        if body.get('fileKey'):
+            item['fileKey'] = body['fileKey']
+        if body.get('fileType'):
+            item['fileType'] = body['fileType']
+        if body.get('fileSizeBytes'):
+            item['fileSizeBytes'] = int(body['fileSizeBytes'])
         books_table.put_item(Item=item)
         
     elif operation == "UPDATE_BOOK":

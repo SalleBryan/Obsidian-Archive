@@ -35,7 +35,7 @@ def lambda_handler(event, context):
                     IndexName='VisibilityIndex',
                     KeyConditionExpression=Key('visibility').eq('public')
                 )
-                return respond(200, resp.get('Items', []))
+                return respond(200, {"books": resp.get('Items', [])})
             return respond(400, {"error": "Invalid query parameters"})
             
         elif resource == '/books/mine':
@@ -45,7 +45,7 @@ def lambda_handler(event, context):
                 IndexName='OwnerIndex',
                 KeyConditionExpression=Key('ownerId').eq(user_id)
             )
-            return respond(200, resp.get('Items', []))
+            return respond(200, {"books": resp.get('Items', [])})
             
         elif resource == '/books/{bookId}':
             book_id = event.get('pathParameters', {}).get('bookId')
