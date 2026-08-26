@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -16,7 +16,8 @@ import {
   BookOpen, X, Library, Loader2, Save,
   AlertTriangle, Check, RefreshCw, UploadCloud, Settings,
   Lock, Globe, User, LogIn, LogOut, FileText, Bell, MessageSquarePlus, Share2,
-  Shield, CheckCircle2, Circle, ExternalLink, Sparkles
+  Shield, CheckCircle2, Circle, ExternalLink, Sparkles, Layers, Bookmark,
+  Maximize2, Minimize2, Type, Sun, Moon, Coffee, ChevronDown, CheckCheck
 } from "lucide-react";
 import {
   signIn,
@@ -40,16 +41,30 @@ const EP = {
   uploadBook: `${API_BASE}/upload/book`,
   requests: `${API_BASE}/requests`,
   profile: `${API_BASE}/profile`,
+  notifications: `${API_BASE}/notifications`,
+};
+
+// ── SUPER ADMIN CHECK ─────────────────────────────────────────────────────────
+const SUPER_ADMIN_EMAILS = [
+  "bryansalle17@gmail.com",
+  "bryan@digisol.com"
+];
+export const checkIsSuperAdmin = (user) => {
+  if (!user || !user.email) return false;
+  const em = user.email.toLowerCase();
+  return SUPER_ADMIN_EMAILS.includes(em) || em.startsWith("bryansalle") || em.startsWith("bryan@");
 };
 
 // ── THEME CONSTANTS ───────────────────────────────────────────────────────────
-const CATEGORIES = ["Fiction", "Sci-Fi", "Fantasy", "Non-Fiction", "Biography", "Education", "Uncategorized"];
+const CATEGORIES = ["Fiction", "Sci-Fi", "Fantasy", "Non-Fiction", "Mystery", "Romance", "Biography", "Education", "Uncategorized"];
 
 const CAT_COLORS = {
   "Fiction":       "#ffcd5b",
   "Sci-Fi":        "#b9c8de",
   "Fantasy":       "#ffc6c1",
   "Non-Fiction":   "#4ADE80",
+  "Mystery":       "#c084fc",
+  "Romance":       "#f472b6",
   "Biography":     "#fb923c",
   "Education":     "#38bdf8",
   "Uncategorized": "#9b8f7b",
@@ -91,9 +106,18 @@ const api = {
     const headers = await getAuthHeader();
     const res = await fetch(`${EP.books}/${bookId}`, { headers });
     if (!res.ok) {
-      if (res.status === 403) throw new Error("This book is private to its author.");
+      if (res.status === 403) throw new Error("This book is in a private collection.");
       if (res.status === 404) throw new Error("Book not found.");
       throw new Error("Failed to load book details.");
+    }
+    return res.json();
+  },
+  getBookReadUrl: async (bookId) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.books}/${bookId}/read`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Unable to open reader for this book.");
     }
     return res.json();
   },
@@ -139,14 +163,14 @@ const api = {
       headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify({ extension: ext, contentType })
     });
-    if (!res.ok) throw new Error("Failed to request cover upload signature");
+    if (!res.ok) throw new Error("Failed to prepare cover upload");
     const { uploadUrl, coverKey, publicUrl } = await res.json();
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": contentType },
       body: file
     });
-    if (!uploadRes.ok) throw new Error("Cover upload to S3 failed");
+    if (!uploadRes.ok) throw new Error("Cover upload failed");
     return { coverKey, publicUrl };
   },
   uploadBookFile: async (file) => {
@@ -164,7 +188,7 @@ const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Failed to request book file upload signature");
+      throw new Error(err.error || "Failed to prepare document upload");
     }
     const { uploadUrl, fileKey } = await res.json();
     const uploadRes = await fetch(uploadUrl, {
@@ -172,7 +196,7 @@ const api = {
       headers: { "Content-Type": contentType },
       body: file
     });
-    if (!uploadRes.ok) throw new Error("Document upload to S3 failed");
+    if (!uploadRes.ok) throw new Error("Book file upload failed");
     return { fileKey, fileType: ext, fileSizeBytes: file.size };
   },
   getRequests: async () => {
@@ -203,6 +227,27 @@ const api = {
     if (!res.ok) throw new Error("Failed to delete request");
     return res.json();
   },
+  getNotifications: async () => {
+    try {
+      const headers = await getAuthHeader();
+      const res = await fetch(EP.notifications, { headers });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.notifications || [];
+    } catch {
+      return [];
+    }
+  },
+  markNotificationRead: async (notificationId) => {
+    try {
+      const headers = await getAuthHeader();
+      await fetch(EP.notifications, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify({ operation: "MARK_NOTIFICATION_READ", notificationId })
+      });
+    } catch {}
+  },
   getProfile: async () => {
     const headers = await getAuthHeader();
     const res = await fetch(EP.profile, { headers });
@@ -223,11 +268,12 @@ const api = {
 
 // ── STYLES ───────────────────────────────────────────────────────────────────
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap');
+  
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background-color: #111317;
-    color: #e2e2e6;
+    background-color: #0e1014;
+    color: #e4e4e7;
     font-family: 'Plus Jakarta Sans', sans-serif;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
@@ -235,214 +281,286 @@ const STYLES = `
   }
   a { color: inherit; text-decoration: none; }
   .shell { display: flex; min-height: 100vh; }
+  
+  /* SIDEBAR */
   .sidebar {
-    width: 280px; background: #16181d; border-right: 1px solid rgba(78,70,53,0.3);
+    width: 270px; background: #14161b; border-right: 1px solid rgba(255, 205, 91, 0.1);
     display: flex; flex-direction: column; justify-content: space-between;
-    padding: 32px 24px; position: fixed; top: 0; bottom: 0; left: 0; z-index: 40;
+    padding: 28px 20px; position: fixed; top: 0; bottom: 0; left: 0; z-index: 40;
   }
   @media(max-width: 768px) { .sidebar { display: none; } }
   .sidebar-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; cursor: pointer; }
   .sidebar-brand-icon {
-    width: 42px; height: 42px; border-radius: 10px; background: rgba(255,205,91,0.12);
+    width: 44px; height: 44px; border-radius: 12px; background: rgba(255,205,91,0.12);
     border: 1px solid rgba(255,205,91,0.3); display: flex; align-items: center; justify-content: center;
-    color: #ffcd5b; box-shadow: 0 4px 16px rgba(255,205,91,0.15);
+    color: #ffcd5b; box-shadow: 0 4px 20px rgba(255,205,91,0.2);
   }
   .sidebar-brand-title { font-size: 19px; font-weight: 800; color: #ffcd5b; letter-spacing: -0.02em; }
-  .sidebar-brand-sub { font-size: 11px; color: #9b8f7b; text-transform: uppercase; letter-spacing: 0.1em; }
-  .sidebar-user {
-    display: flex; align-items: center; gap: 12px; padding: 12px;
-    background: #1e2025; border: 1px solid rgba(78,70,53,0.4); border-radius: 12px; margin-bottom: 24px;
-  }
-  .sidebar-user-avatar {
-    width: 38px; height: 38px; border-radius: 50%; background: #ffcd5b; color: #1a1300;
-    font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 16px;
-  }
-  .sidebar-user-info { overflow: hidden; flex: 1; }
-  .sidebar-user-name { font-size: 14px; font-weight: 700; color: #e2e2e6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .sidebar-user-email { font-size: 11px; color: #9b8f7b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar-brand-sub { font-size: 11px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+  
   .sidebar-nav { display: flex; flex-direction: column; gap: 6px; flex: 1; }
   .nav-item {
     display: flex; align-items: center; gap: 14px; padding: 12px 16px;
-    border-radius: 10px; color: #d2c5af; font-size: 14px; font-weight: 600;
+    border-radius: 10px; color: #d4d4d8; font-size: 14px; font-weight: 600;
     transition: all 0.2s; border: none; background: transparent; cursor: pointer; width: 100%; text-align: left;
   }
-  .nav-item:hover { background: #1e2025; color: #ffcd5b; }
+  .nav-item:hover { background: #1c1e24; color: #ffcd5b; }
   .nav-item.active { background: rgba(255,205,91,0.12); color: #ffcd5b; border-left: 3px solid #ffcd5b; }
-  .main-area { flex: 1; margin-left: 280px; display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* MAIN AREA */
+  .main-area { flex: 1; margin-left: 270px; display: flex; flex-direction: column; min-height: 100vh; }
   @media(max-width: 768px) { .main-area { margin-left: 0; } }
+
+  /* TOPBAR */
   .topbar {
     position: sticky; top: 0; z-index: 30; height: 72px;
-    background: rgba(17,19,23,0.88); backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(78,70,53,0.2);
-    display: flex; align-items: center; justify-content: space-between; padding: 0 48px;
+    background: rgba(14,16,20,0.9); backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 40px;
   }
   @media(max-width: 768px) { .topbar { padding: 0 16px; } }
-  .topbar-brand { display: none; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; color: #ffcd5b; cursor: pointer; }
+  .topbar-brand { display: none; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; color: #ffcd5b; cursor: pointer; }
   @media(max-width: 768px) { .topbar-brand { display: flex; } }
   .topbar-search { position: relative; flex: 1; max-width: 440px; margin: 0 24px; }
   .topbar-search input {
-    width: 100%; height: 42px; padding: 0 16px 0 44px; background: #1e2025;
-    border: 1px solid rgba(78,70,53,0.4); border-radius: 999px; color: #e2e2e6;
+    width: 100%; height: 42px; padding: 0 16px 0 44px; background: #17191f;
+    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 999px; color: #e4e4e7;
     font-family: inherit; font-size: 14px; outline: none; transition: all 0.2s;
   }
-  .topbar-search input:focus { border-color: #ffcd5b; }
-  .topbar-search-icon { position: absolute; left: 14px; top: 12px; color: #d2c5af; }
-  .topbar-actions { display: flex; align-items: center; gap: 12px; }
+  .topbar-search input:focus { border-color: #ffcd5b; box-shadow: 0 0 0 2px rgba(255,205,91,0.2); }
+  .topbar-search-icon { position: absolute; left: 14px; top: 12px; color: #a1a1aa; }
+  
+  .topbar-actions { display: flex; align-items: center; gap: 14px; }
   .icon-btn {
     width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent;
-    color: #d2c5af; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+    color: #a1a1aa; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+    position: relative;
   }
-  .icon-btn:hover { background: #1e2025; color: #ffcd5b; }
-  .page { padding: 40px 48px 100px; max-width: 1440px; width: 100%; }
-  @media(max-width: 768px) { .page { padding: 24px 16px 100px; } }
+  .icon-btn:hover { background: #1c1e24; color: #ffcd5b; }
+  .badge-dot {
+    position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
+    background: #ef4444; border-radius: 50%; border: 2px solid #0e1014;
+  }
+
+  /* User Pill on Navbar */
+  .user-nav-pill {
+    display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px;
+    background: #17191f; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 999px;
+    cursor: pointer; transition: all 0.2s; user-select: none;
+  }
+  .user-nav-pill:hover { border-color: #ffcd5b; background: #1f2128; }
+  .user-nav-avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: #ffcd5b; color: #1a1300;
+    font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  }
+  .user-nav-name { font-size: 13px; font-weight: 700; color: #e4e4e7; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  
+  /* Super Admin Badge */
+  .admin-badge {
+    display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+    background: rgba(255,205,91,0.18); border: 1px solid #ffcd5b; border-radius: 999px;
+    font-size: 10px; font-weight: 800; color: #ffcd5b; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  /* PAGE LAYOUT */
+  .page { padding: 36px 40px 100px; max-width: 1400px; width: 100%; }
+  @media(max-width: 768px) { .page { padding: 20px 16px 100px; } }
   .page-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .eyebrow-line { width: 48px; height: 3px; background: #ffcd5b; border-radius: 999px; }
-  .eyebrow-text { font-size: 11px; font-weight: 700; color: #ffcd5b; text-transform: uppercase; letter-spacing: 0.12em; }
-  .page-title { font-size: 42px; font-weight: 800; color: #e2e2e6; letter-spacing: -0.02em; line-height: 1.15; }
-  .page-sub { font-size: 15px; color: rgba(210,197,175,0.7); margin-top: 6px; }
-  .page-header { margin-bottom: 32px; }
-  .toolbar { display: flex; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; align-items: center; }
+  .eyebrow-line { width: 40px; height: 3px; background: #ffcd5b; border-radius: 999px; }
+  .eyebrow-text { font-size: 11px; font-weight: 800; color: #ffcd5b; text-transform: uppercase; letter-spacing: 0.12em; }
+  .page-title { font-size: 38px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; line-height: 1.15; }
+  .page-sub { font-size: 14px; color: #a1a1aa; margin-top: 6px; }
+  .page-header { margin-bottom: 28px; }
+
+  /* TOOLBAR & CHIPS */
+  .toolbar { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
   .cat-chip {
-    padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 500;
-    cursor: pointer; transition: all 0.15s; border: 1px solid rgba(78,70,53,0.5);
-    background: transparent; color: #d2c5af; white-space: nowrap; font-family: inherit;
+    padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; border: 1px solid rgba(255, 255, 255, 0.12);
+    background: transparent; color: #a1a1aa; white-space: nowrap; font-family: inherit;
   }
-  .cat-chip:hover { border-color: #ffcd5b; color: #e2e2e6; }
-  .cat-chip.active { background: rgba(255,205,91,0.12); border-color: rgba(255,205,91,0.5); color: #ffcd5b; font-weight: 700; }
-  .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 24px; }
+  .cat-chip:hover { border-color: #ffcd5b; color: #e4e4e7; }
+  .cat-chip.active { background: rgba(255,205,91,0.14); border-color: #ffcd5b; color: #ffcd5b; font-weight: 700; }
+
+  /* Toggle Pills */
+  .view-toggle {
+    display: inline-flex; padding: 4px; background: #17191f; border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 24px;
+  }
+  .toggle-btn {
+    padding: 8px 18px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    border: none; background: transparent; color: #a1a1aa; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px; font-family: inherit;
+  }
+  .toggle-btn.active { background: #ffcd5b; color: #14161b; shadow: 0 2px 10px rgba(255,205,91,0.25); }
+
+  /* BOOK GRID & CARDS */
+  .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 24px; }
   .book-card {
     position: relative; border-radius: 12px; overflow: hidden; cursor: pointer; aspect-ratio: 2/3;
-    background: #1e2025; border: 1px solid rgba(78,70,53,0.25); box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-    transition: transform 0.3s, box-shadow 0.3s;
+    background: #17191f; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
   }
-  .book-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 28px 48px rgba(0,0,0,0.75); border-color: rgba(255,205,91,0.4); }
+  .book-card:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0,0,0,0.7); border-color: rgba(255,205,91,0.4); }
   .book-card-top-bar { position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 10; }
   .book-card-badge {
     position: absolute; top: 10px; right: 10px; z-index: 10; padding: 3px 8px; border-radius: 999px;
-    background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); font-size: 10px; font-weight: 600;
-    display: flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,0.12);
   }
-  .book-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; display: block; }
-  .book-card:hover .book-card-img { transform: scale(1.06); }
+  .book-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; display: block; }
+  .book-card:hover .book-card-img { transform: scale(1.05); }
   .book-overlay {
     position: absolute; inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.35) 55%, transparent 100%);
+    background: linear-gradient(to top, rgba(14,16,20,0.95) 0%, rgba(14,16,20,0.3) 60%, transparent 100%);
     display: flex; flex-direction: column; justify-content: flex-end; padding: 14px;
   }
   .book-title-text { font-size: 15px; font-weight: 700; color: #fff; line-height: 1.25; }
-  .book-author-text { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 2px; }
-  .add-card {
-    position: relative; border-radius: 12px; overflow: hidden; cursor: pointer; aspect-ratio: 2/3;
-    background: #1e2025; border: 2px dashed rgba(78,70,53,0.5);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.2s;
+  .book-author-text { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 2px; }
+  .book-series-tag { font-size: 10px; color: #ffcd5b; font-weight: 700; margin-top: 4px; }
+
+  /* Series Section */
+  .series-section { margin-bottom: 40px; }
+  .series-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; background: #17191f; border: 1px solid rgba(255, 205, 91, 0.2);
+    border-radius: 12px; margin-bottom: 20px;
   }
-  .add-card:hover { border-color: #ffcd5b; background: #282a2d; }
-  .add-card-icon {
-    width: 56px; height: 56px; border-radius: 50%; background: #333538;
-    display: flex; align-items: center; justify-content: center; margin-bottom: 12px; color: #d2c5af;
-  }
-  .add-card:hover .add-card-icon { background: rgba(255,205,91,0.15); color: #ffcd5b; }
-  .add-card-label { font-size: 14px; font-weight: 600; color: #d2c5af; text-align: center; padding: 0 12px; }
+  .series-title { font-size: 18px; font-weight: 800; color: #ffcd5b; display: flex; align-items: center; gap: 8px; }
+  .series-count { font-size: 12px; color: #a1a1aa; font-weight: 600; }
+
+  /* BUTTONS */
   .btn {
-    display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 22px;
-    border-radius: 999px; font-family: inherit; font-size: 14px; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 20px;
+    border-radius: 999px; font-family: inherit; font-size: 13px; font-weight: 700;
     cursor: pointer; transition: all 0.2s; border: none; text-decoration: none;
   }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-primary { background: #ffcd5b; color: #231900; box-shadow: 0 4px 14px rgba(255,205,91,0.25); }
+  .btn-primary { background: #ffcd5b; color: #14161b; box-shadow: 0 4px 14px rgba(255,205,91,0.25); }
   .btn-primary:hover:not(:disabled) { background: #ffd875; transform: translateY(-1px); }
-  .btn-danger { background: transparent; color: #d2c5af; border: 1px solid rgba(78,70,53,0.6); }
-  .btn-danger:hover:not(:disabled) { color: #ffb4ab; border-color: rgba(255,180,171,0.4); background: rgba(255,180,171,0.08); }
-  .btn-secondary { background: transparent; color: #d2c5af; border: 1px solid rgba(78,70,53,0.6); }
-  .btn-secondary:hover:not(:disabled) { background: #282a2d; color: #e2e2e6; }
+  .btn-danger { background: transparent; color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+  .btn-danger:hover:not(:disabled) { background: rgba(248,113,113,0.12); border-color: #f87171; }
+  .btn-secondary { background: #17191f; color: #e4e4e7; border: 1px solid rgba(255,255,255,0.12); }
+  .btn-secondary:hover:not(:disabled) { background: #22252e; border-color: #ffcd5b; }
   .btn-google {
     background: #ffffff; color: #1f1f1f; border: 1px solid #dadce0; width: 100%;
     justify-content: center; margin-bottom: 16px; font-weight: 600;
   }
   .btn-google:hover:not(:disabled) { background: #f8f9fa; border-color: #c6c6c6; }
+
+  /* GLASS PANEL & CARDS */
   .glass-panel {
-    background: rgba(22,24,29,0.75); backdrop-filter: blur(14px);
-    border: 1px solid rgba(255,205,91,0.12); box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    background: rgba(23,25,31,0.85); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 12px 32px rgba(0,0,0,0.5);
   }
-  .detail-grid { display: grid; grid-template-columns: 300px 1fr; gap: 48px; align-items: start; }
-  @media(max-width: 768px) { .detail-grid { grid-template-columns: 1fr; gap: 28px; } }
+  .detail-grid { display: grid; grid-template-columns: 280px 1fr; gap: 44px; align-items: start; }
+  @media(max-width: 768px) { .detail-grid { grid-template-columns: 1fr; gap: 24px; } }
   .cover-wrapper {
     width: 100%; aspect-ratio: 2/3; border-radius: 12px; overflow: hidden;
-    background: #1e2025; border: 1px solid rgba(78,70,53,0.3); box-shadow: 0 20px 60px rgba(0,0,0,0.7); position: relative;
+    background: #17191f; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.7); position: relative;
   }
   .cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .detail-title { font-size: 38px; font-weight: 800; line-height: 1.15; margin-bottom: 8px; }
-  .detail-author { font-size: 18px; color: #d2c5af; margin-bottom: 24px; font-weight: 500; }
-  .detail-description { font-size: 15px; line-height: 1.8; color: rgba(226,226,230,0.85); margin-bottom: 32px; max-width: 680px; }
+  .detail-title { font-size: 36px; font-weight: 800; line-height: 1.15; margin-bottom: 6px; }
+  .detail-author { font-size: 17px; color: #ffcd5b; margin-bottom: 20px; font-weight: 600; }
+  .detail-description { font-size: 15px; line-height: 1.8; color: #d4d4d8; margin-bottom: 28px; max-width: 680px; }
   .detail-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-  .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+
+  /* EDITOR / FORMS */
+  .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
   @media(max-width: 768px) { .editor-grid { grid-template-columns: 1fr; } }
-  .editor-card { border-radius: 14px; padding: 32px; position: relative; }
-  .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-  .field label { font-size: 11px; font-weight: 700; color: #d2c5af; text-transform: uppercase; letter-spacing: 0.1em; }
+  .editor-card { border-radius: 14px; padding: 28px; }
+  .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+  .field label { font-size: 11px; font-weight: 700; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.08em; }
   .field input, .field select, .field textarea {
-    background: #1e2025; border: 1px solid rgba(78,70,53,0.45); padding: 12px 16px; border-radius: 8px;
-    color: #e2e2e6; font-family: inherit; font-size: 14px; width: 100%; outline: none; transition: all 0.2s;
+    background: #111317; border: 1px solid rgba(255, 255, 255, 0.12); padding: 12px 16px; border-radius: 8px;
+    color: #e4e4e7; font-family: inherit; font-size: 14px; width: 100%; outline: none; transition: all 0.2s;
   }
-  .field input:focus, .field select:focus, .field textarea:focus { border-color: #ffcd5b; }
-  .field select option { background: #1e2025; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: #ffcd5b; box-shadow: 0 0 0 2px rgba(255,205,91,0.15); }
+  .field select option { background: #17191f; }
   .upload-zone {
-    border: 2px dashed rgba(78,70,53,0.5); border-radius: 10px; min-height: 140px;
+    border: 2px dashed rgba(255, 255, 255, 0.18); border-radius: 10px; min-height: 130px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; background: #1e2025; padding: 16px;
+    cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; background: #111317; padding: 16px;
   }
-  .upload-zone:hover { border-color: #ffcd5b; background: rgba(255,205,91,0.04); }
+  .upload-zone:hover { border-color: #ffcd5b; background: rgba(255,205,91,0.03); }
   .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+  /* MODALS & DROPDOWNS */
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
     display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px;
   }
   .modal-box {
-    background: #181a1f; border: 1px solid rgba(255,205,91,0.25); border-radius: 18px;
-    width: 100%; max-width: 460px; padding: 36px; box-shadow: 0 24px 64px rgba(0,0,0,0.9);
+    background: #17191f; border: 1px solid rgba(255,205,91,0.25); border-radius: 16px;
+    width: 100%; max-width: 440px; padding: 32px; box-shadow: 0 24px 64px rgba(0,0,0,0.9);
   }
-  .req-card {
-    background: #1e2025; border: 1px solid rgba(78,70,53,0.3); border-radius: 12px; padding: 20px;
-    display: flex; flex-direction: column; gap: 12px; transition: transform 0.2s;
+
+  /* Notifications Dropdown */
+  .notif-dropdown {
+    position: absolute; top: 60px; right: 240px; width: 340px; max-height: 420px;
+    background: #17191f; border: 1px solid rgba(255,205,91,0.25); border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8); z-index: 50; overflow-y: auto; padding: 12px;
   }
-  .req-card:hover { transform: translateY(-4px); border-color: #ffcd5b; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spin { animation: spin 1s linear infinite; }
-  .loading-center { display: flex; align-items: center; justify-content: center; min-height: 340px; }
+  .notif-item {
+    padding: 12px; border-radius: 8px; background: #111317; border: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 8px; cursor: pointer; transition: all 0.2s;
+  }
+  .notif-item:hover { border-color: #ffcd5b; background: #1c1e24; }
+  .notif-item.unread { border-left: 3px solid #ffcd5b; }
+
+  /* User Menu Dropdown */
+  .user-menu-dropdown {
+    position: absolute; top: 60px; right: 40px; width: 220px;
+    background: #17191f; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8); z-index: 50; padding: 8px;
+  }
+  .menu-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px;
+    font-size: 13px; font-weight: 600; color: #e4e4e7; cursor: pointer; transition: all 0.15s;
+    border: none; background: transparent; width: 100%; text-align: left;
+  }
+  .menu-item:hover { background: #22252e; color: #ffcd5b; }
+
+  /* PROGRESS BAR */
+  .progress-container { width: 100%; height: 8px; background: #111317; border-radius: 999px; overflow: hidden; margin: 16px 0; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #ffcd5b, #4ADE80); transition: width 0.3s ease; }
+
+  /* ONLINE READER THEMES */
+  .reader-shell { min-height: 100vh; display: flex; flex-direction: column; }
+  .reader-theme-dark { background-color: #111317; color: #d4d4d8; }
+  .reader-theme-sepia { background-color: #fbf0d9; color: #433422; }
+  .reader-theme-light { background-color: #ffffff; color: #18181b; }
+
+  .reader-header {
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; border-bottom: 1px solid rgba(128,128,128,0.2);
+  }
+  .reader-body { flex: 1; display: flex; justify-content: center; padding: 32px 20px; overflow-y: auto; }
+  .reader-content { max-width: 780px; width: 100%; font-family: 'Lora', serif; line-height: 1.9; }
+
+  /* Policy Checklist */
+  .policy-checklist {
+    background: #111317; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+    padding: 12px 14px; margin: 12px 0 16px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .policy-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a1a1aa; }
+  .policy-item.valid { color: #4ADE80; font-weight: 600; }
+
+  /* MOBILE NAV */
   .mobile-nav {
     display: none; position: fixed; bottom: 0; left: 0; right: 0;
-    background: #181a1f; border-top: 1px solid rgba(78,70,53,0.3); z-index: 50;
+    background: #14161b; border-top: 1px solid rgba(255,255,255,0.1); z-index: 50;
   }
   @media(max-width: 768px) { .mobile-nav { display: flex; justify-content: space-around; height: 64px; align-items: center; } }
   .mobile-nav-item {
     display: flex; flex-direction: column; align-items: center; gap: 2px;
-    color: #d2c5af; font-size: 10px; font-weight: 500; cursor: pointer; flex: 1;
+    color: #a1a1aa; font-size: 10px; font-weight: 600; cursor: pointer; flex: 1;
     padding: 8px 0; border: none; background: transparent; font-family: inherit; text-decoration: none;
   }
   .mobile-nav-item.active { color: #ffcd5b; }
-
-  /* Empty state card */
-  .empty-vault-card {
-    border: 1px solid rgba(255,205,91,0.18); border-radius: 16px; padding: 56px 32px;
-    background: rgba(26,28,34,0.6); text-align: center; max-width: 620px; margin: 40px auto;
-    display: flex; flex-direction: column; align-items: center; gap: 16px;
-  }
-  .empty-vault-icon {
-    width: 72px; height: 72px; border-radius: 50%; background: rgba(255,205,91,0.12);
-    border: 1px solid rgba(255,205,91,0.3); display: flex; align-items: center; justify-content: center;
-    color: #ffcd5b; margin-bottom: 8px;
-  }
-  .policy-checklist {
-    background: #14161a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
-    padding: 12px 16px; margin: 12px 0 16px; display: flex; flex-direction: column; gap: 6px;
-  }
-  .policy-item {
-    display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a1a1aa;
-  }
-  .policy-item.valid { color: #4ADE80; font-weight: 600; }
 `;
 
-// ── MAIN APP ROOT COMPONENT ──────────────────────────────────────────────────
+// ── ROOT APPLICATION ─────────────────────────────────────────────────────────
 export default function App() {
   return (
     <BrowserRouter>
@@ -455,42 +573,61 @@ function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Auth State
+  // User State
   const [currentUser, setCurrentUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState("signin"); // "signin" | "signup" | "confirm"
+  const [authMode, setAuthMode] = useState("signin");
   const [authForm, setAuthForm] = useState({ email: "", password: "", name: "", code: "" });
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
 
-  // Request Modal
-  const [reqModalOpen, setReqModalOpen] = useState(false);
-  const [reqForm, setReqForm] = useState({ title: "", author: "", description: "" });
-  const [reqLoading, setReqLoading] = useState(false);
-
-  // Global search & filters
+  // Topbar Dropdowns
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifMenuOpen, setNotifMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // ── AUTH CHECK ─────────────────────────────────────────────────────────────
+  const isSuperAdmin = useMemo(() => checkIsSuperAdmin(currentUser), [currentUser]);
+
+  // Auth Initialization
   const checkAuth = useCallback(async () => {
     try {
       const user = await getCurrentUser();
       const attrs = await fetchUserAttributes();
+      const email = attrs.email || user.username;
+      const isAdmin = SUPER_ADMIN_EMAILS.includes(email.toLowerCase()) || email.toLowerCase().startsWith("bryan");
       setCurrentUser({
         userId: user.userId,
-        email: attrs.email || user.username,
-        name: attrs.name || (attrs.email ? attrs.email.split("@")[0] : "Reader")
+        email,
+        name: attrs.name || (email ? email.split("@")[0] : "Reader"),
+        isAdmin
       });
     } catch {
       setCurrentUser(null);
     }
   }, []);
 
+  const loadNotifications = useCallback(async () => {
+    if (!currentUser) return;
+    const notifs = await api.getNotifications();
+    setNotifications(notifs);
+  }, [currentUser]);
+
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
-  // ── AUTH HANDLERS ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (currentUser) {
+      loadNotifications();
+      const timer = setInterval(loadNotifications, 30000); // 30s poll
+      return () => clearInterval(timer);
+    }
+  }, [currentUser, loadNotifications]);
+
+  const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
+
+  // Auth Handlers
   const handleSignIn = async (e) => {
     e.preventDefault();
     setAuthLoading(true);
@@ -503,9 +640,9 @@ function AppShell() {
     } catch (err) {
       if (err.name === "UserNotConfirmedException") {
         setAuthMode("confirm");
-        setAuthError("Account not confirmed. Please enter the verification code sent to your email.");
+        setAuthError("Account not confirmed. Enter verification code sent to your email.");
       } else {
-        setAuthError(err.message || "Failed to sign in. Please verify credentials.");
+        setAuthError(err.message || "Failed to sign in. Verify credentials.");
       }
     } finally {
       setAuthLoading(false);
@@ -545,17 +682,14 @@ function AppShell() {
         username: authForm.email.trim(),
         confirmationCode: authForm.code.trim()
       });
-      // Auto-sign in after successful verification
       try {
         await signIn({ username: authForm.email.trim(), password: authForm.password });
-      } catch {
-        // Sign in fallback
-      }
+      } catch {}
       await checkAuth();
       setAuthModalOpen(false);
       setAuthForm({ email: "", password: "", name: "", code: "" });
     } catch (err) {
-      setAuthError(err.message || "Invalid verification code.");
+      setAuthError(err.message || "Invalid confirmation code.");
     } finally {
       setAuthLoading(false);
     }
@@ -567,7 +701,7 @@ function AppShell() {
     try {
       await signInWithRedirect({ provider: "Google" });
     } catch (err) {
-      setAuthError("Google SSO: " + (err.message || "Configure Google OAuth Client ID in Cognito to activate."));
+      setAuthError("Google SSO: " + (err.message || "Configure Google OAuth Client ID in Cognito."));
       setAuthLoading(false);
     }
   };
@@ -575,6 +709,7 @@ function AppShell() {
   const handleSignOut = async () => {
     await signOut();
     setCurrentUser(null);
+    setUserMenuOpen(false);
     navigate("/library");
   };
 
@@ -584,7 +719,6 @@ function AppShell() {
     setAuthModalOpen(true);
   };
 
-  // Password policy live checks
   const pass = authForm.password || "";
   const policyChecks = {
     length: pass.length >= 8,
@@ -592,6 +726,20 @@ function AppShell() {
     lower: /[a-z]/.test(pass),
     digit: /[0-9]/.test(pass),
   };
+
+  // If we are in online reader mode (/read/:bookId), hide normal shell to give maximum reading area
+  const isReaderMode = location.pathname.startsWith("/read/");
+
+  if (isReaderMode) {
+    return (
+      <>
+        <style>{STYLES}</style>
+        <Routes>
+          <Route path="/read/:bookId" element={<OnlineReaderPage currentUser={currentUser} />} />
+        </Routes>
+      </>
+    );
+  }
 
   return (
     <>
@@ -601,24 +749,12 @@ function AppShell() {
         <aside className="sidebar">
           <div>
             <div className="sidebar-brand" onClick={() => navigate("/library")}>
-              <div className="sidebar-brand-icon"><BookOpen size={22} /></div>
+              <div className="sidebar-brand-icon"><BookOpen size={24} /></div>
               <div>
-                <div className="sidebar-brand-title">Obsidian Archive</div>
-                <div className="sidebar-brand-sub">Universal Knowledge Vault</div>
+                <div className="sidebar-brand-title">Obsidian</div>
+                <div className="sidebar-brand-sub">For Book Lovers</div>
               </div>
             </div>
-
-            {currentUser && (
-              <div className="sidebar-user">
-                <div className="sidebar-user-avatar">
-                  {currentUser.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="sidebar-user-info">
-                  <div className="sidebar-user-name">{currentUser.name}</div>
-                  <div className="sidebar-user-email">{currentUser.email}</div>
-                </div>
-              </div>
-            )}
 
             <nav className="sidebar-nav">
               <Link
@@ -630,12 +766,7 @@ function AppShell() {
               <Link
                 to="/collection"
                 className={`nav-item ${location.pathname === "/collection" ? "active" : ""}`}
-                onClick={(e) => {
-                  if (!currentUser) {
-                    e.preventDefault();
-                    openAuth("signin");
-                  }
-                }}
+                onClick={(e) => { if (!currentUser) { e.preventDefault(); openAuth("signin"); } }}
               >
                 <Library size={18} /> My Collection
               </Link>
@@ -647,18 +778,18 @@ function AppShell() {
               </Link>
               {currentUser && (
                 <Link
-                  to="/settings"
-                  className={`nav-item ${location.pathname === "/settings" ? "active" : ""}`}
+                  to="/profile"
+                  className={`nav-item ${location.pathname === "/profile" ? "active" : ""}`}
                 >
-                  <Settings size={18} /> Settings
+                  <User size={18} /> My Profile
                 </Link>
               )}
             </nav>
           </div>
 
-          <div style={{ borderTop: "1px solid rgba(78,70,53,0.3)", paddingTop: 16 }}>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 16 }}>
             {currentUser ? (
-              <button className="nav-item" onClick={handleSignOut} style={{ color: "#ffb4ab" }}>
+              <button className="nav-item" onClick={handleSignOut} style={{ color: "#f87171" }}>
                 <LogOut size={18} /> Sign Out
               </button>
             ) : (
@@ -685,7 +816,7 @@ function AppShell() {
               <Search className="topbar-search-icon" size={18} />
               <input
                 type="text"
-                placeholder="Search catalog by title, author…"
+                placeholder="Search books by title, author, series…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -693,15 +824,41 @@ function AppShell() {
 
             <div className="topbar-actions">
               {currentUser ? (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => navigate("/upload")}
-                >
-                  <Plus size={16} /> Upload Book
-                </button>
+                <>
+                  {/* NOTIFICATION BELL */}
+                  <button
+                    className="icon-btn"
+                    onClick={() => { setNotifMenuOpen(!notifMenuOpen); setUserMenuOpen(false); }}
+                    title="Notifications"
+                  >
+                    <Bell size={19} />
+                    {unreadCount > 0 && <span className="badge-dot" />}
+                  </button>
+
+                  {/* UPLOAD BUTTON */}
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => navigate("/upload")}
+                  >
+                    <Plus size={16} /> Upload Book
+                  </button>
+
+                  {/* USER PILL */}
+                  <div
+                    className="user-nav-pill"
+                    onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifMenuOpen(false); }}
+                  >
+                    <div className="user-nav-avatar">
+                      {currentUser.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="user-nav-name">{currentUser.name}</div>
+                    {isSuperAdmin && <span className="admin-badge">Admin</span>}
+                    <ChevronDown size={14} color="#a1a1aa" />
+                  </div>
+                </>
               ) : (
                 <button
-                  className="btn btn-secondary"
+                  className="btn btn-primary"
                   onClick={() => openAuth("signin")}
                 >
                   <LogIn size={16} /> Sign In
@@ -710,20 +867,91 @@ function AppShell() {
             </div>
           </header>
 
-          {/* MULTI-PAGE ROUTES */}
+          {/* NOTIFICATIONS DROPDOWN */}
+          <AnimatePresence>
+            {notifMenuOpen && (
+              <motion.div
+                className="notif-dropdown"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "#ffcd5b" }}>Notifications</span>
+                  <span style={{ fontSize: 11, color: "#a1a1aa" }}>{unreadCount} unread</span>
+                </div>
+                {notifications.length === 0 ? (
+                  <p style={{ fontSize: 12, color: "#a1a1aa", textAlign: "center", padding: "16px 0" }}>
+                    No notifications yet.
+                  </p>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.notificationId}
+                      className={`notif-item ${!n.isRead ? "unread" : ""}`}
+                      onClick={() => {
+                        api.markNotificationRead(n.notificationId);
+                        setNotifMenuOpen(false);
+                        if (n.bookId) navigate(`/books/${n.bookId}`);
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#e4e4e7" }}>{n.title}</div>
+                      <div style={{ fontSize: 11, color: "#a1a1aa", marginTop: 2 }}>{n.message}</div>
+                    </div>
+                  ))
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* USER MENU DROPDOWN */}
+          <AnimatePresence>
+            {userMenuOpen && (
+              <motion.div
+                className="user-menu-dropdown"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <div style={{ padding: "8px 12px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 6 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{currentUser.name}</div>
+                  <div style={{ fontSize: 11, color: "#a1a1aa" }}>{currentUser.email}</div>
+                  {isSuperAdmin && (
+                    <div style={{ marginTop: 6 }}>
+                      <span className="admin-badge"><Shield size={10} /> Super Admin</span>
+                    </div>
+                  )}
+                </div>
+                <button className="menu-item" onClick={() => { setUserMenuOpen(false); navigate("/profile"); }}>
+                  <User size={15} /> My Profile
+                </button>
+                <button className="menu-item" onClick={() => { setUserMenuOpen(false); navigate("/collection"); }}>
+                  <Library size={15} /> My Collection
+                </button>
+                <button className="menu-item" onClick={() => { setUserMenuOpen(false); navigate("/requests"); }}>
+                  <MessageSquarePlus size={15} /> Book Requests
+                </button>
+                <button className="menu-item" onClick={handleSignOut} style={{ color: "#f87171" }}>
+                  <LogOut size={15} /> Sign Out
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ROUTES */}
           <Routes>
             <Route path="/" element={<Navigate to="/library" replace />} />
             <Route
               path="/library"
-              element={<PublicLibraryPage searchQuery={searchQuery} currentUser={currentUser} onOpenAuth={openAuth} />}
+              element={<PublicLibraryPage searchQuery={searchQuery} currentUser={currentUser} onOpenAuth={openAuth} isSuperAdmin={isSuperAdmin} />}
             />
             <Route
               path="/collection"
-              element={<MyCollectionPage searchQuery={searchQuery} currentUser={currentUser} onOpenAuth={openAuth} />}
+              element={<MyCollectionPage searchQuery={searchQuery} currentUser={currentUser} onOpenAuth={openAuth} isSuperAdmin={isSuperAdmin} />}
             />
             <Route
               path="/requests"
-              element={<RequestsBoardPage currentUser={currentUser} onOpenAuth={openAuth} />}
+              element={<RequestsBoardPage currentUser={currentUser} onOpenAuth={openAuth} isSuperAdmin={isSuperAdmin} />}
             />
             <Route
               path="/upload"
@@ -731,15 +959,15 @@ function AppShell() {
             />
             <Route
               path="/books/:bookId"
-              element={<BookDetailPage currentUser={currentUser} onOpenAuth={openAuth} />}
+              element={<BookDetailPage currentUser={currentUser} onOpenAuth={openAuth} isSuperAdmin={isSuperAdmin} />}
             />
             <Route
               path="/books/:bookId/edit"
-              element={<EditBookPage currentUser={currentUser} onOpenAuth={openAuth} />}
+              element={<EditBookPage currentUser={currentUser} isSuperAdmin={isSuperAdmin} />}
             />
             <Route
-              path="/settings"
-              element={<SettingsPage currentUser={currentUser} onOpenAuth={openAuth} />}
+              path="/profile"
+              element={<UserProfilePage currentUser={currentUser} onOpenAuth={openAuth} isSuperAdmin={isSuperAdmin} />}
             />
           </Routes>
         </div>
@@ -756,22 +984,22 @@ function AppShell() {
             onClick={(e) => { if (!currentUser) { e.preventDefault(); openAuth("signin"); } }}
           >
             <Library size={18} />
-            <span>Vault</span>
+            <span>Collection</span>
           </Link>
           <Link to="/requests" className={`mobile-nav-item ${location.pathname === "/requests" ? "active" : ""}`}>
             <MessageSquarePlus size={18} />
             <span>Requests</span>
           </Link>
           {currentUser && (
-            <Link to="/settings" className={`mobile-nav-item ${location.pathname === "/settings" ? "active" : ""}`}>
-              <Settings size={18} />
-              <span>Settings</span>
+            <Link to="/profile" className={`mobile-nav-item ${location.pathname === "/profile" ? "active" : ""}`}>
+              <User size={18} />
+              <span>Profile</span>
             </Link>
           )}
         </nav>
       </div>
 
-      {/* GLOBAL AUTH MODAL */}
+      {/* AUTH MODAL */}
       <AnimatePresence>
         {authModalOpen && (
           <div className="modal-overlay" onClick={() => setAuthModalOpen(false)}>
@@ -790,12 +1018,11 @@ function AppShell() {
               </div>
 
               {authError && (
-                <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(255,180,171,0.15)", color: "#ffb4ab", fontSize: 13, marginBottom: 16, border: "1px solid rgba(255,180,171,0.3)" }}>
+                <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(248,113,113,0.15)", color: "#f87171", fontSize: 13, marginBottom: 16, border: "1px solid rgba(248,113,113,0.3)" }}>
                   {authError}
                 </div>
               )}
 
-              {/* Google SSO Button on Sign In & Sign Up */}
               {authMode !== "confirm" && (
                 <>
                   <button className="btn btn-google" onClick={handleGoogleSSO} disabled={authLoading}>
@@ -809,9 +1036,9 @@ function AppShell() {
                   </button>
 
                   <div style={{ display: "flex", alignItems: "center", margin: "16px 0", gap: 12 }}>
-                    <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.12)" }} />
-                    <span style={{ fontSize: 11, color: "#9b8f7b", textTransform: "uppercase", letterSpacing: "0.1em" }}>or with email</span>
-                    <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.12)" }} />
+                    <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+                    <span style={{ fontSize: 11, color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.08em" }}>or with email</span>
+                    <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
                   </div>
                 </>
               )}
@@ -839,12 +1066,12 @@ function AppShell() {
                     />
                   </div>
                   <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} disabled={authLoading}>
-                    {authLoading ? <Loader2 size={16} className="spin" /> : "Sign In to Vault"}
+                    {authLoading ? <Loader2 size={16} className="spin" /> : "Sign In"}
                   </button>
-                  <p style={{ textAlign: "center", fontSize: 13, color: "#d2c5af", marginTop: 16 }}>
-                    New to Obsidian Archive?{" "}
+                  <p style={{ textAlign: "center", fontSize: 13, color: "#a1a1aa", marginTop: 16 }}>
+                    Don't have an account?{" "}
                     <span style={{ color: "#ffcd5b", cursor: "pointer", fontWeight: 700 }} onClick={() => { setAuthMode("signup"); setAuthError(""); }}>
-                      Create Account
+                      Sign Up
                     </span>
                   </p>
                 </form>
@@ -853,7 +1080,7 @@ function AppShell() {
               {authMode === "signup" && (
                 <form onSubmit={handleSignUp}>
                   <div className="field">
-                    <label>Full Name</label>
+                    <label>Your Name</label>
                     <input
                       type="text"
                       required
@@ -883,14 +1110,13 @@ function AppShell() {
                     />
                   </div>
 
-                  {/* PASSWORD POLICY CHECKLIST */}
                   <div className="policy-checklist">
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#ffcd5b", textTransform: "uppercase", marginBottom: 4 }}>
-                      Password Requirements:
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#ffcd5b", textTransform: "uppercase" }}>
+                      Password Checklist:
                     </div>
                     <div className={`policy-item ${policyChecks.length ? "valid" : ""}`}>
                       {policyChecks.length ? <CheckCircle2 size={13} /> : <Circle size={13} />}
-                      At least 8 characters
+                      8+ characters
                     </div>
                     <div className={`policy-item ${policyChecks.upper ? "valid" : ""}`}>
                       {policyChecks.upper ? <CheckCircle2 size={13} /> : <Circle size={13} />}
@@ -911,9 +1137,9 @@ function AppShell() {
                     style={{ width: "100%", justifyContent: "center", marginTop: 8 }}
                     disabled={authLoading || !policyChecks.length || !policyChecks.upper || !policyChecks.lower || !policyChecks.digit}
                   >
-                    {authLoading ? <Loader2 size={16} className="spin" /> : "Create Account & Send Code"}
+                    {authLoading ? <Loader2 size={16} className="spin" /> : "Create Account"}
                   </button>
-                  <p style={{ textAlign: "center", fontSize: 13, color: "#d2c5af", marginTop: 16 }}>
+                  <p style={{ textAlign: "center", fontSize: 13, color: "#a1a1aa", marginTop: 16 }}>
                     Already have an account?{" "}
                     <span style={{ color: "#ffcd5b", cursor: "pointer", fontWeight: 700 }} onClick={() => { setAuthMode("signin"); setAuthError(""); }}>
                       Sign In
@@ -924,8 +1150,8 @@ function AppShell() {
 
               {authMode === "confirm" && (
                 <form onSubmit={handleConfirmSignUp}>
-                  <p style={{ fontSize: 14, color: "#d2c5af", marginBottom: 16, lineHeight: 1.5 }}>
-                    Enter the 6-digit confirmation code sent to <strong>{authForm.email}</strong> from Obsidian Archive.
+                  <p style={{ fontSize: 14, color: "#a1a1aa", marginBottom: 16, lineHeight: 1.5 }}>
+                    Enter the 6-digit confirmation code sent to <strong>{authForm.email}</strong>.
                   </p>
                   <div className="field">
                     <label>Confirmation Code</label>
@@ -938,9 +1164,9 @@ function AppShell() {
                     />
                   </div>
                   <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} disabled={authLoading}>
-                    {authLoading ? <Loader2 size={16} className="spin" /> : "Verify Code & Open Vault"}
+                    {authLoading ? <Loader2 size={16} className="spin" /> : "Verify Code & Continue"}
                   </button>
-                  <p style={{ textAlign: "center", fontSize: 12, color: "#9b8f7b", marginTop: 16, cursor: "pointer" }} onClick={() => resendSignUpCode({ username: authForm.email })}>
+                  <p style={{ textAlign: "center", fontSize: 12, color: "#71717a", marginTop: 16, cursor: "pointer" }} onClick={() => resendSignUpCode({ username: authForm.email })}>
                     Didn't receive code? Resend
                   </p>
                 </form>
@@ -953,8 +1179,8 @@ function AppShell() {
   );
 }
 
-// ── PAGE 1: PUBLIC LIBRARY PAGE ──────────────────────────────────────────────
-function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth }) {
+// ── PAGE 1: PUBLIC LIBRARY ───────────────────────────────────────────────────
+function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }) {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -967,33 +1193,32 @@ function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth }) {
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadBooks();
-  }, []);
+  useEffect(() => { loadBooks(); }, []);
 
   const filteredBooks = books.filter((b) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       (b.title || "").toLowerCase().includes(q) ||
-      (b.author || "").toLowerCase().includes(q);
+      (b.author || "").toLowerCase().includes(q) ||
+      (b.seriesName || "").toLowerCase().includes(q);
     const matchesCat = filterCat === "All" || b.category === filterCat;
     return matchesSearch && matchesCat;
   });
 
   return (
-    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
+    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
         <div>
           <div className="page-eyebrow">
             <div className="eyebrow-line" />
-            <span className="eyebrow-text">Universal Archive</span>
+            <span className="eyebrow-text">Community Bookshelf</span>
           </div>
           <div className="page-title">Public Library</div>
           <div className="page-sub">
-            {books.length} {books.length === 1 ? "tome" : "tomes"} available for open exploration
+            {books.length} {books.length === 1 ? "book" : "books"} shared by readers around the world
           </div>
         </div>
-        <button className="icon-btn" onClick={loadBooks} title="Refresh Library">
+        <button className="icon-btn" onClick={loadBooks} title="Refresh Books">
           <RefreshCw size={18} className={loading ? "spin" : ""} />
         </button>
       </div>
@@ -1017,42 +1242,27 @@ function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth }) {
       </div>
 
       {loading ? (
-        <div className="loading-center">
-          <Loader2 size={40} style={{ color: "#ffcd5b" }} className="spin" />
-        </div>
+        <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>
       ) : filteredBooks.length === 0 ? (
-        /* PUBLIC EMPTY STATE */
-        <div className="empty-vault-card">
-          <div className="empty-vault-icon">
-            <Globe size={36} />
-          </div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: "#e2e2e6" }}>The Public Archive is Empty</h2>
-          <p style={{ color: "#a1a1aa", fontSize: 14, lineHeight: 1.6 }}>
-            No public tomes have been cataloged in this section yet. Be the first scholar or reader to contribute a volume to the universal library.
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 540, margin: "40px auto" }}>
+          <Globe size={48} style={{ color: "#ffcd5b", margin: "0 auto 16px", opacity: 0.6 }} />
+          <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>The Public Library is Empty</h2>
+          <p style={{ color: "#a1a1aa", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+            No books have been shared in this category yet. Be the first reader to contribute a volume to the community!
           </p>
-          {currentUser ? (
-            <button className="btn btn-primary" onClick={() => navigate("/upload?visibility=public")}>
-              <Plus size={16} /> Contribute to Public Archive
-            </button>
-          ) : (
-            <button className="btn btn-primary" onClick={() => onOpenAuth("signin")}>
-              <LogIn size={16} /> Sign In to Contribute
-            </button>
-          )}
+          <button className="btn btn-primary" onClick={() => currentUser ? navigate("/upload?visibility=public") : onOpenAuth("signin")}>
+            <Plus size={16} /> Contribute a Book
+          </button>
         </div>
       ) : (
-        <motion.div layout className="book-grid">
+        <div className="book-grid">
           {filteredBooks.map((book) => (
-            <motion.div
+            <div
               key={book.bookId}
-              layout
               className="book-card"
               onClick={() => navigate(`/books/${book.bookId}`)}
             >
-              <div
-                className="book-card-top-bar"
-                style={{ background: getCatColor(book.category) }}
-              />
+              <div className="book-card-top-bar" style={{ background: getCatColor(book.category) }} />
               <div className="book-card-badge">
                 <Globe size={10} color="#4ADE80" /> Public
               </div>
@@ -1064,7 +1274,7 @@ function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth }) {
                   alt={book.title}
                 />
               ) : (
-                <div style={{ width: "100%", height: "100%", background: "#1e2025", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: "100%", height: "100%", background: "#17191f", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <BookOpen size={44} style={{ color: getCatColor(book.category), opacity: 0.3 }} />
                 </div>
               )}
@@ -1072,26 +1282,26 @@ function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth }) {
               <div className="book-overlay">
                 <div className="book-title-text">{book.title}</div>
                 <div className="book-author-text">{book.author || "Unknown Author"}</div>
-                {book.fileType && (
-                  <div style={{ fontSize: 10, color: "#ffcd5b", marginTop: 4, textTransform: "uppercase", fontWeight: 700 }}>
-                    {book.fileType} Document
+                {book.seriesName && (
+                  <div className="book-series-tag">
+                    {book.seriesName} {book.seriesOrder ? `#${book.seriesOrder}` : ""}
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       )}
     </motion.div>
   );
 }
 
-// ── PAGE 2: MY COLLECTION PAGE ───────────────────────────────────────────────
-function MyCollectionPage({ searchQuery, currentUser, onOpenAuth }) {
+// ── PAGE 2: MY COLLECTION (WITH SERIES GROUPING) ─────────────────────────────
+function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }) {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterCat, setFilterCat] = useState("All");
+  const [viewMode, setViewMode] = useState("all"); // "all" | "series"
 
   const loadBooks = async () => {
     if (!currentUser) return;
@@ -1107,20 +1317,19 @@ function MyCollectionPage({ searchQuery, currentUser, onOpenAuth }) {
   };
 
   useEffect(() => {
-    if (currentUser) {
-      loadBooks();
-    } else {
-      setLoading(false);
-    }
+    if (currentUser) loadBooks();
+    else setLoading(false);
   }, [currentUser]);
 
   if (!currentUser) {
     return (
       <div className="page">
-        <div className="empty-vault-card">
-          <div className="empty-vault-icon"><Lock size={36} /></div>
-          <h2>Sign In to Access Your Vault</h2>
-          <p style={{ color: "#a1a1aa", fontSize: 14 }}>Your personal collection is encrypted and private to your account.</p>
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 500, margin: "40px auto" }}>
+          <Lock size={44} style={{ color: "#ffcd5b", margin: "0 auto 16px" }} />
+          <h2>Sign In to Access Your Bookshelf</h2>
+          <p style={{ color: "#a1a1aa", fontSize: 14, marginTop: 8, marginBottom: 20 }}>
+            Your personal collection is private and encrypted to your account.
+          </p>
           <button className="btn btn-primary" onClick={() => onOpenAuth("signin")}>
             <LogIn size={16} /> Sign In
           </button>
@@ -1131,123 +1340,171 @@ function MyCollectionPage({ searchQuery, currentUser, onOpenAuth }) {
 
   const filteredBooks = books.filter((b) => {
     const q = searchQuery.toLowerCase();
-    const matchesSearch =
+    return (
       (b.title || "").toLowerCase().includes(q) ||
-      (b.author || "").toLowerCase().includes(q);
-    const matchesCat = filterCat === "All" || b.category === filterCat;
-    return matchesSearch && matchesCat;
+      (b.author || "").toLowerCase().includes(q) ||
+      (b.seriesName || "").toLowerCase().includes(q)
+    );
   });
 
+  // Group books by Series
+  const seriesGroups = useMemo(() => {
+    const groups = {};
+    const standalones = [];
+
+    filteredBooks.forEach((book) => {
+      if (book.seriesName && book.seriesName.trim()) {
+        const sName = book.seriesName.trim();
+        if (!groups[sName]) groups[sName] = [];
+        groups[sName].push(book);
+      } else {
+        standalones.push(book);
+      }
+    });
+
+    // Sort books within each series by seriesOrder
+    Object.keys(groups).forEach((sName) => {
+      groups[sName].sort((a, b) => (Number(a.seriesOrder) || 999) - (Number(b.seriesOrder) || 999));
+    });
+
+    return { groups, standalones };
+  }, [filteredBooks]);
+
   return (
-    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
+    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
         <div>
           <div className="page-eyebrow">
             <div className="eyebrow-line" />
-            <span className="eyebrow-text">Private Vault</span>
+            <span className="eyebrow-text">Personal Sanctuary</span>
           </div>
           <div className="page-title">My Collection</div>
           <div className="page-sub">
-            {books.length} {books.length === 1 ? "tome" : "tomes"} in your encrypted sanctuary
+            {books.length} {books.length === 1 ? "book" : "books"} on your bookshelf
           </div>
         </div>
-        <button className="icon-btn" onClick={loadBooks} title="Refresh Collection">
-          <RefreshCw size={18} className={loading ? "spin" : ""} />
-        </button>
-      </div>
 
-      <div className="toolbar">
-        <button
-          className={`cat-chip ${filterCat === "All" ? "active" : ""}`}
-          onClick={() => setFilterCat("All")}
-        >
-          All Genres
-        </button>
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            className={`cat-chip ${filterCat === cat ? "active" : ""}`}
-            onClick={() => setFilterCat(cat)}
-          >
-            {cat}
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {/* VIEW TOGGLE */}
+          <div className="view-toggle">
+            <button
+              className={`toggle-btn ${viewMode === "all" ? "active" : ""}`}
+              onClick={() => setViewMode("all")}
+            >
+              <BookOpen size={14} /> All Books
+            </button>
+            <button
+              className={`toggle-btn ${viewMode === "series" ? "active" : ""}`}
+              onClick={() => setViewMode("series")}
+            >
+              <Layers size={14} /> By Series
+            </button>
+          </div>
+          <button className="icon-btn" onClick={loadBooks} title="Refresh Collection">
+            <RefreshCw size={18} className={loading ? "spin" : ""} />
           </button>
-        ))}
+        </div>
       </div>
 
       {loading ? (
-        <div className="loading-center">
-          <Loader2 size={40} style={{ color: "#ffcd5b" }} className="spin" />
-        </div>
+        <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>
       ) : filteredBooks.length === 0 ? (
-        /* MY COLLECTION EMPTY STATE */
-        <div className="empty-vault-card">
-          <div className="empty-vault-icon">
-            <Shield size={36} />
-          </div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: "#e2e2e6" }}>Your Vault is Empty</h2>
-          <p style={{ color: "#a1a1aa", fontSize: 14, lineHeight: 1.6 }}>
-            Keep your research papers, personal manuscripts, and private documents secure in your personal vault where only you can read them.
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 540, margin: "40px auto" }}>
+          <Library size={48} style={{ color: "#ffcd5b", margin: "0 auto 16px", opacity: 0.6 }} />
+          <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Your Collection is Empty</h2>
+          <p style={{ color: "#a1a1aa", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+            Keep your favorite novels, private manuscripts, or entire series neatly organized here.
           </p>
           <button className="btn btn-primary" onClick={() => navigate("/upload?visibility=private")}>
-            <Plus size={16} /> Add to Archive
+            <Plus size={16} /> Add to Collection
           </button>
         </div>
-      ) : (
-        <motion.div layout className="book-grid">
-          {filteredBooks.map((book) => (
-            <motion.div
-              key={book.bookId}
-              layout
-              className="book-card"
-              onClick={() => navigate(`/books/${book.bookId}`)}
-            >
-              <div
-                className="book-card-top-bar"
-                style={{ background: getCatColor(book.category) }}
-              />
-              <div className="book-card-badge">
-                {book.visibility === "private" ? (
-                  <><Lock size={10} color="#ffb4ab" /> Private</>
-                ) : (
-                  <><Globe size={10} color="#4ADE80" /> Public</>
-                )}
-              </div>
-
-              {book.coverKey ? (
-                <img
-                  src={`https://obsidian-covers-12345.s3.amazonaws.com/${book.coverKey}`}
-                  className="book-card-img"
-                  alt={book.title}
-                />
-              ) : (
-                <div style={{ width: "100%", height: "100%", background: "#1e2025", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <BookOpen size={44} style={{ color: getCatColor(book.category), opacity: 0.3 }} />
+      ) : viewMode === "series" ? (
+        /* SERIES GROUPED VIEW */
+        <div>
+          {Object.entries(seriesGroups.groups).map(([sName, sBooks]) => (
+            <div key={sName} className="series-section">
+              <div className="series-header">
+                <div className="series-title">
+                  <Layers size={20} /> {sName}
                 </div>
-              )}
-
-              <div className="book-overlay">
-                <div className="book-title-text">{book.title}</div>
-                <div className="book-author-text">{book.author || "Unknown Author"}</div>
-                {book.fileType && (
-                  <div style={{ fontSize: 10, color: "#ffcd5b", marginTop: 4, textTransform: "uppercase", fontWeight: 700 }}>
-                    {book.fileType} Document
-                  </div>
-                )}
+                <div className="series-count">{sBooks.length} {sBooks.length === 1 ? "Volume" : "Volumes"}</div>
               </div>
-            </motion.div>
+              <div className="book-grid">
+                {sBooks.map((book) => (
+                  <BookCardItem key={book.bookId} book={book} onSelect={() => navigate(`/books/${book.bookId}`)} />
+                ))}
+              </div>
+            </div>
           ))}
-          <div className="add-card" onClick={() => navigate("/upload")}>
-            <div className="add-card-icon"><Plus size={24} /></div>
-            <div className="add-card-label">Add to Archive</div>
-          </div>
-        </motion.div>
+
+          {seriesGroups.standalones.length > 0 && (
+            <div className="series-section">
+              <div className="series-header">
+                <div className="series-title">
+                  <BookOpen size={20} /> Standalone Books
+                </div>
+                <div className="series-count">{seriesGroups.standalones.length} {seriesGroups.standalones.length === 1 ? "Book" : "Books"}</div>
+              </div>
+              <div className="book-grid">
+                {seriesGroups.standalones.map((book) => (
+                  <BookCardItem key={book.bookId} book={book} onSelect={() => navigate(`/books/${book.bookId}`)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ALL BOOKS FLAT GRID */
+        <div className="book-grid">
+          {filteredBooks.map((book) => (
+            <BookCardItem key={book.bookId} book={book} onSelect={() => navigate(`/books/${book.bookId}`)} />
+          ))}
+        </div>
       )}
     </motion.div>
   );
 }
 
-// ── PAGE 3: BOOK REQUESTS BOARD ──────────────────────────────────────────────
-function RequestsBoardPage({ currentUser, onOpenAuth }) {
+function BookCardItem({ book, onSelect }) {
+  return (
+    <div className="book-card" onClick={onSelect}>
+      <div className="book-card-top-bar" style={{ background: getCatColor(book.category) }} />
+      <div className="book-card-badge">
+        {book.visibility === "private" ? (
+          <><Lock size={10} color="#f87171" /> Private</>
+        ) : (
+          <><Globe size={10} color="#4ADE80" /> Public</>
+        )}
+      </div>
+
+      {book.coverKey ? (
+        <img
+          src={`https://obsidian-covers-12345.s3.amazonaws.com/${book.coverKey}`}
+          className="book-card-img"
+          alt={book.title}
+        />
+      ) : (
+        <div style={{ width: "100%", height: "100%", background: "#17191f", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <BookOpen size={44} style={{ color: getCatColor(book.category), opacity: 0.3 }} />
+        </div>
+      )}
+
+      <div className="book-overlay">
+        <div className="book-title-text">{book.title}</div>
+        <div className="book-author-text">{book.author || "Unknown Author"}</div>
+        {book.seriesName && (
+          <div className="book-series-tag">
+            {book.seriesName} {book.seriesOrder ? `#${book.seriesOrder}` : ""}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── PAGE 3: BOOK REQUESTS ────────────────────────────────────────────────────
+function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -1261,9 +1518,7 @@ function RequestsBoardPage({ currentUser, onOpenAuth }) {
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadRequests();
-  }, []);
+  useEffect(() => { loadRequests(); }, []);
 
   const handleCreateRequest = async (e) => {
     e.preventDefault();
@@ -1275,80 +1530,72 @@ function RequestsBoardPage({ currentUser, onOpenAuth }) {
       setForm({ title: "", author: "", description: "" });
       setTimeout(loadRequests, 1000);
     } catch (err) {
-      alert(err.message || "Error creating request.");
+      alert(err.message || "Error submitting request.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
+    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
         <div>
           <div className="page-eyebrow">
             <div className="eyebrow-line" />
-            <span className="eyebrow-text">Community Wishlist</span>
+            <span className="eyebrow-text">Reader Wishlist</span>
           </div>
           <div className="page-title">Book Requests</div>
-          <div className="page-sub">Request manuscripts you need or help fulfill requests for fellow scholars.</div>
+          <div className="page-sub">Request books you're looking for or upload a requested book to help others!</div>
         </div>
-        <button className="btn btn-primary" onClick={() => {
-          if (!currentUser) onOpenAuth("signin");
-          else setModalOpen(true);
-        }}>
+        <button className="btn btn-primary" onClick={() => currentUser ? setModalOpen(true) : onOpenAuth("signin")}>
           <Plus size={16} /> Request a Book
         </button>
       </div>
 
       {loading ? (
-        <div className="loading-center">
-          <Loader2 size={40} style={{ color: "#ffcd5b" }} className="spin" />
-        </div>
+        <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>
       ) : requests.length === 0 ? (
-        <div className="empty-vault-card">
-          <div className="empty-vault-icon"><MessageSquarePlus size={36} /></div>
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 500, margin: "40px auto" }}>
+          <MessageSquarePlus size={44} style={{ color: "#ffcd5b", margin: "0 auto 16px" }} />
           <h2>No Active Requests</h2>
-          <p style={{ color: "#a1a1aa", fontSize: 14 }}>Be the first reader to submit a request for an elusive manuscript.</p>
-          <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-            <Plus size={16} /> Submit Request
-          </button>
+          <p style={{ color: "#a1a1aa", fontSize: 14, marginTop: 8 }}>Be the first book lover to submit a request!</p>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 20 }}>
           {requests.map((r) => (
-            <div key={r.requestId} className="req-card">
+            <div key={r.requestId} className="editor-card glass-panel" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <h3 style={{ fontSize: 18, fontWeight: 700, color: "#e2e2e6" }}>{r.title}</h3>
-                  <p style={{ fontSize: 13, color: "#d2c5af", marginTop: 2 }}>by {r.author || "Unknown Author"}</p>
+                  <h3 style={{ fontSize: 17, fontWeight: 800 }}>{r.title}</h3>
+                  <p style={{ fontSize: 13, color: "#ffcd5b", marginTop: 2 }}>by {r.author || "Unknown"}</p>
                 </div>
                 <span style={{
-                  padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700,
+                  padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700,
                   background: r.status === "open" ? "rgba(255,205,91,0.15)" : "rgba(74,222,128,0.15)",
                   color: r.status === "open" ? "#ffcd5b" : "#4ADE80"
                 }}>
-                  {r.status === "open" ? "Seeking" : "Fulfilled"}
+                  {r.status === "open" ? "Looking for Book" : "Fulfilled"}
                 </span>
               </div>
               {r.description && (
-                <p style={{ fontSize: 13, color: "rgba(226,226,230,0.75)", lineHeight: 1.5 }}>
+                <p style={{ fontSize: 13, color: "#a1a1aa", lineHeight: 1.5 }}>
                   {r.description}
                 </p>
               )}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, borderTop: "1px solid rgba(78,70,53,0.3)", paddingTop: 12 }}>
-                <span style={{ fontSize: 11, color: "#9b8f7b" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 12 }}>
+                <span style={{ fontSize: 11, color: "#71717a" }}>
                   Requested by {r.requesterName || "Reader"}
                 </span>
-                {currentUser && currentUser.userId === r.requesterId && (
+                {(currentUser && (currentUser.userId === r.requesterId || isSuperAdmin)) && (
                   <button
                     className="btn btn-danger"
-                    style={{ height: 32, padding: "0 12px", fontSize: 12 }}
+                    style={{ height: 30, padding: "0 10px", fontSize: 11 }}
                     onClick={async () => {
                       await api.deleteRequest(r.requestId);
                       loadRequests();
                     }}
                   >
-                    <Trash2 size={13} /> Remove
+                    <Trash2 size={12} /> Remove
                   </button>
                 )}
               </div>
@@ -1369,16 +1616,16 @@ function RequestsBoardPage({ currentUser, onOpenAuth }) {
               exit={{ scale: 0.92, opacity: 0 }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: "#ffcd5b" }}>Request a Volume</h2>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: "#ffcd5b" }}>Request a Book</h2>
                 <button className="icon-btn" onClick={() => setModalOpen(false)}><X size={20} /></button>
               </div>
               <form onSubmit={handleCreateRequest}>
                 <div className="field">
-                  <label>Book Title</label>
+                  <label>Book Title *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Dune"
+                    placeholder="e.g. Red Rising"
                     value={form.title}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                   />
@@ -1387,16 +1634,16 @@ function RequestsBoardPage({ currentUser, onOpenAuth }) {
                   <label>Author (Optional)</label>
                   <input
                     type="text"
-                    placeholder="e.g. Frank Herbert"
+                    placeholder="e.g. Pierce Brown"
                     value={form.author}
                     onChange={(e) => setForm({ ...form, author: e.target.value })}
                   />
                 </div>
                 <div className="field">
-                  <label>Notes / Format Requested</label>
+                  <label>Notes / Format Preference</label>
                   <textarea
                     rows={3}
-                    placeholder="e.g. Looking for EPUB or PDF version for research study…"
+                    placeholder="e.g. Looking for EPUB or PDF to read this weekend…"
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                   />
@@ -1413,7 +1660,7 @@ function RequestsBoardPage({ currentUser, onOpenAuth }) {
   );
 }
 
-// ── PAGE 4: UPLOAD / CATALOG BOOK PAGE ───────────────────────────────────────
+// ── PAGE 4: UPLOAD BOOK (WITH ANIMATED PROGRESS BAR & SERIES) ────────────────
 function UploadBookPage({ currentUser, onOpenAuth }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1424,23 +1671,31 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
     author: "",
     category: CATEGORIES[0],
     description: "",
-    visibility: defaultVisibility
+    visibility: defaultVisibility,
+    isSeries: false,
+    seriesName: "",
+    seriesOrder: 1
   });
   const [coverFile, setCoverFile] = useState(null);
   const [bookFile, setBookFile] = useState(null);
   const [previewCover, setPreviewCover] = useState("");
+
+  // Upload Progress State (No Technical Jargon)
   const [uploading, setUploading] = useState(false);
-  const [statusMsg, setStatusMsg] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [statusText, setStatusText] = useState("");
 
   if (!currentUser) {
     return (
       <div className="page">
-        <div className="empty-vault-card">
-          <div className="empty-vault-icon"><Lock size={36} /></div>
-          <h2>Authentication Required</h2>
-          <p style={{ color: "#a1a1aa", fontSize: 14 }}>Please sign in to upload manuscripts or catalog books.</p>
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 500, margin: "40px auto" }}>
+          <Lock size={44} style={{ color: "#ffcd5b", margin: "0 auto 16px" }} />
+          <h2>Sign In to Upload Books</h2>
+          <p style={{ color: "#a1a1aa", fontSize: 14, marginTop: 8, marginBottom: 20 }}>
+            Sign in to upload manuscripts to your collection or the public library.
+          </p>
           <button className="btn btn-primary" onClick={() => onOpenAuth("signin")}>
-            <LogIn size={16} /> Sign In to Upload
+            <LogIn size={16} /> Sign In
           </button>
         </div>
       </div>
@@ -1452,7 +1707,8 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
     if (!formData.title.trim()) return alert("Please enter a book title.");
 
     setUploading(true);
-    setStatusMsg("Preparing upload signatures…");
+    setProgress(15);
+    setStatusText("Preparing book for upload…");
 
     try {
       let finalCoverKey = "";
@@ -1460,24 +1716,28 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
       let finalFileType = "";
       let finalFileSize = 0;
 
-      // 1. Upload Cover Image if selected
+      // 1. Upload Cover
       if (coverFile) {
-        setStatusMsg("Uploading cover image to S3…");
+        setProgress(35);
+        setStatusText("Uploading cover image…");
         const { coverKey } = await api.uploadCover(coverFile);
         finalCoverKey = coverKey;
       }
 
-      // 2. Upload Document File if selected
+      // 2. Upload Document
       if (bookFile) {
-        setStatusMsg(`Uploading ${(bookFile.size / (1024 * 1024)).toFixed(1)}MB document to S3…`);
+        setProgress(65);
+        setStatusText(`Uploading book document (${(bookFile.size / (1024 * 1024)).toFixed(1)} MB)…`);
         const { fileKey, fileType, fileSizeBytes } = await api.uploadBookFile(bookFile);
         finalFileKey = fileKey;
         finalFileType = fileType;
         finalFileSize = fileSizeBytes;
       }
 
-      // 3. Save Book Metadata via API Gateway & SQS
-      setStatusMsg("Cataloging book into Obsidian Archive…");
+      // 3. Catalog to Library
+      setProgress(90);
+      setStatusText("Adding book to your library…");
+
       const payload = {
         title: formData.title.trim(),
         author: formData.author.trim(),
@@ -1487,28 +1747,30 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
         coverKey: finalCoverKey,
         fileKey: finalFileKey,
         fileType: finalFileType,
-        fileSizeBytes: finalFileSize
+        fileSizeBytes: finalFileSize,
+        seriesName: formData.isSeries ? formData.seriesName.trim() : "",
+        seriesOrder: formData.isSeries ? Number(formData.seriesOrder) : null
       };
 
       await api.createBook(payload);
-      setStatusMsg("Complete! Redirecting to archive…");
+
+      setProgress(100);
+      setStatusText("Book added successfully!");
 
       setTimeout(() => {
-        if (formData.visibility === "private") {
-          navigate("/collection");
-        } else {
-          navigate("/library");
-        }
-      }, 1000);
+        if (formData.visibility === "private") navigate("/collection");
+        else navigate("/library");
+      }, 800);
     } catch (err) {
-      alert(err.message || "Failed to upload and catalog book.");
+      alert(err.message || "Failed to upload book.");
       setUploading(false);
-      setStatusMsg("");
+      setProgress(0);
+      setStatusText("");
     }
   };
 
   return (
-    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
+    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
       <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ marginBottom: 28 }}>
         <ArrowLeft size={16} /> Back
       </button>
@@ -1516,33 +1778,47 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
       <div className="page-header">
         <div className="page-eyebrow">
           <div className="eyebrow-line" />
-          <span className="eyebrow-text">Catalog Volume</span>
+          <span className="eyebrow-text">Add to Bookshelf</span>
         </div>
-        <h1 className="page-title">Upload & Catalog a Book</h1>
-        <p className="page-sub">Add a manuscript, PDF, or EPUB to your personal vault or share it with the world.</p>
+        <h1 className="page-title">Upload a Book</h1>
+        <p className="page-sub">Add a document or standalone book to your collection or share it with the community.</p>
       </div>
+
+      {uploading && (
+        <div className="editor-card glass-panel" style={{ marginBottom: 28 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#ffcd5b" }}>{statusText}</span>
+            <span style={{ fontSize: 13, fontWeight: 800 }}>{progress}%</span>
+          </div>
+          <div className="progress-container">
+            <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSave}>
         <div className="editor-grid">
-          {/* Metadata Card */}
+          {/* Metadata */}
           <div className="editor-card glass-panel">
             <div className="field">
               <label>Book Title *</label>
               <input
                 type="text"
                 required
-                placeholder="e.g. Red Rising"
+                placeholder="e.g. Golden Son"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                disabled={uploading}
               />
             </div>
             <div className="field">
-              <label>Author / Creator</label>
+              <label>Author</label>
               <input
                 type="text"
                 placeholder="e.g. Pierce Brown"
                 value={formData.author}
                 onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                disabled={uploading}
               />
             </div>
             <div className="field">
@@ -1550,38 +1826,78 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                disabled={uploading}
               >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
+                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="field">
-              <label>Privacy & Visibility</label>
+              <label>Privacy</label>
               <select
                 value={formData.visibility}
                 onChange={(e) => setFormData({ ...formData, visibility: e.target.value })}
+                disabled={uploading}
               >
-                <option value="public">Public (Visible to all scholars in library)</option>
+                <option value="public">Public (Visible to everyone in library)</option>
                 <option value="private">Private (Vaulted to your collection only)</option>
               </select>
             </div>
+
+            {/* SERIES TOGGLE */}
+            <div style={{ background: "#111317", padding: "14px 16px", borderRadius: 8, margin: "16px 0", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                <input
+                  type="checkbox"
+                  style={{ width: 18, height: 18, accentColor: "#ffcd5b", cursor: "pointer" }}
+                  checked={formData.isSeries}
+                  onChange={(e) => setFormData({ ...formData, isSeries: e.target.checked })}
+                  disabled={uploading}
+                />
+                Part of a Book Series?
+              </label>
+
+              {formData.isSeries && (
+                <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+                  <div className="field" style={{ marginBottom: 0 }}>
+                    <label>Series Title</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Red Rising Saga"
+                      value={formData.seriesName}
+                      onChange={(e) => setFormData({ ...formData, seriesName: e.target.value })}
+                      disabled={uploading}
+                    />
+                  </div>
+                  <div className="field" style={{ marginBottom: 0 }}>
+                    <label>Book #</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={formData.seriesOrder}
+                      onChange={(e) => setFormData({ ...formData, seriesOrder: e.target.value })}
+                      disabled={uploading}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="field">
-              <label>Synopsis / Description</label>
+              <label>Synopsis</label>
               <textarea
-                rows={4}
-                placeholder="Overview, notes, or abstract of the tome…"
+                rows={3}
+                placeholder="What is this book about?…"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                disabled={uploading}
               />
             </div>
           </div>
 
-          {/* S3 Media Uploads */}
+          {/* Files */}
           <div className="editor-card glass-panel" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Cover Upload */}
             <div className="field">
-              <label>Cover Image (Optional PNG/JPG)</label>
+              <label>Cover Image (Optional)</label>
               <div className="upload-zone">
                 <input
                   type="file"
@@ -1593,23 +1909,23 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
                       setPreviewCover(URL.createObjectURL(f));
                     }
                   }}
+                  disabled={uploading}
                 />
                 {previewCover ? (
-                  <img src={previewCover} style={{ maxHeight: 120, objectFit: "contain", borderRadius: 6 }} alt="Cover Preview" />
+                  <img src={previewCover} style={{ maxHeight: 130, objectFit: "contain", borderRadius: 8 }} alt="Preview" />
                 ) : (
-                  <div style={{ textAlign: "center", color: "#d2c5af" }}>
+                  <div style={{ textAlign: "center", color: "#a1a1aa" }}>
                     <UploadCloud size={32} style={{ margin: "0 auto 8px", color: "#ffcd5b" }} />
-                    <p style={{ fontSize: 13, fontWeight: 600 }}>Click to choose cover image</p>
-                    <p style={{ fontSize: 11, color: "#9b8f7b", marginTop: 4 }}>PNG, JPG or WebP</p>
+                    <p style={{ fontSize: 13, fontWeight: 700 }}>Choose cover image</p>
+                    <p style={{ fontSize: 11, color: "#71717a", marginTop: 4 }}>PNG, JPG or WebP</p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Document File Upload */}
             <div className="field">
-              <label>Document File (Optional EPUB, PDF up to 100MB)</label>
-              <div className="upload-zone" style={{ minHeight: 110 }}>
+              <label>Book Document (EPUB or PDF up to 100MB)</label>
+              <div className="upload-zone" style={{ minHeight: 120 }}>
                 <input
                   type="file"
                   accept=".epub,.pdf,.mobi,.txt"
@@ -1617,15 +1933,16 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
                     const f = e.target.files[0];
                     if (f) setBookFile(f);
                   }}
+                  disabled={uploading}
                 />
-                <div style={{ textAlign: "center", color: "#d2c5af" }}>
+                <div style={{ textAlign: "center", color: "#a1a1aa" }}>
                   <FileText size={32} style={{ margin: "0 auto 8px", color: "#ffcd5b" }} />
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>
-                    {bookFile ? bookFile.name : "Click to select EPUB or PDF document"}
+                  <p style={{ fontSize: 13, fontWeight: 700 }}>
+                    {bookFile ? bookFile.name : "Select EPUB or PDF document"}
                   </p>
                   {bookFile && (
                     <p style={{ fontSize: 11, color: "#4ADE80", marginTop: 4, fontWeight: 700 }}>
-                      {(bookFile.size / (1024 * 1024)).toFixed(2)} MB attached
+                      {(bookFile.size / (1024 * 1024)).toFixed(2)} MB selected
                     </p>
                   )}
                 </div>
@@ -1634,17 +1951,9 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
           </div>
         </div>
 
-        <div style={{ marginTop: 32, display: "flex", gap: 14, alignItems: "center" }}>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={uploading || !formData.title.trim()}
-          >
-            {uploading ? (
-              <><Loader2 size={16} className="spin" /> {statusMsg || "Uploading…"}</>
-            ) : (
-              <><Save size={16} /> Save & Catalog Tome</>
-            )}
+        <div style={{ marginTop: 28, display: "flex", gap: 12 }}>
+          <button type="submit" className="btn btn-primary" disabled={uploading || !formData.title.trim()}>
+            {uploading ? <><Loader2 size={16} className="spin" /> Uploading…</> : <><Save size={16} /> Save Book</>}
           </button>
           <button type="button" className="btn btn-secondary" onClick={() => navigate(-1)} disabled={uploading}>
             Cancel
@@ -1655,8 +1964,8 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
   );
 }
 
-// ── PAGE 5: BOOK DETAIL PAGE ─────────────────────────────────────────────────
-function BookDetailPage({ currentUser, onOpenAuth }) {
+// ── PAGE 5: BOOK DETAIL (WITH OWNER/SUPER ADMIN PERMISSIONS) ─────────────────
+function BookDetailPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   const { bookId } = useParams();
   const navigate = useNavigate();
   const [book, setBook] = useState(null);
@@ -1666,7 +1975,6 @@ function BookDetailPage({ currentUser, onOpenAuth }) {
   useEffect(() => {
     const fetchBook = async () => {
       setLoading(true);
-      setError("");
       try {
         const b = await api.getBookById(bookId);
         setBook(b);
@@ -1680,20 +1988,16 @@ function BookDetailPage({ currentUser, onOpenAuth }) {
   }, [bookId]);
 
   if (loading) {
-    return (
-      <div className="loading-center">
-        <Loader2 size={40} style={{ color: "#ffcd5b" }} className="spin" />
-      </div>
-    );
+    return <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>;
   }
 
   if (error || !book) {
     return (
       <div className="page">
-        <div className="empty-vault-card">
-          <div className="empty-vault-icon"><AlertTriangle size={36} /></div>
-          <h2>Tome Unavailable</h2>
-          <p style={{ color: "#a1a1aa", fontSize: 14 }}>{error || "This volume could not be located in the archive."}</p>
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 500, margin: "40px auto" }}>
+          <AlertTriangle size={44} style={{ color: "#f87171", margin: "0 auto 16px" }} />
+          <h2>Book Unavailable</h2>
+          <p style={{ color: "#a1a1aa", fontSize: 14, marginTop: 8, marginBottom: 20 }}>{error}</p>
           <button className="btn btn-secondary" onClick={() => navigate("/library")}>
             <ArrowLeft size={16} /> Back to Library
           </button>
@@ -1702,11 +2006,12 @@ function BookDetailPage({ currentUser, onOpenAuth }) {
     );
   }
 
-  const isOwner = currentUser && currentUser.userId === book.ownerId;
+  // Permission: Owner or Super Admin can edit/delete
+  const canModify = currentUser && (currentUser.userId === book.ownerId || isSuperAdmin);
 
   return (
-    <motion.div className="page" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-      <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ marginBottom: 32 }}>
+    <motion.div className="page" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+      <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ marginBottom: 28 }}>
         <ArrowLeft size={16} /> Back
       </button>
 
@@ -1719,8 +2024,8 @@ function BookDetailPage({ currentUser, onOpenAuth }) {
               alt={book.title}
             />
           ) : (
-            <div style={{ width: "100%", height: "100%", background: "#1e2025", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <BookOpen size={72} style={{ color: getCatColor(book.category), opacity: 0.3 }} />
+            <div style={{ width: "100%", height: "100%", background: "#17191f", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <BookOpen size={64} style={{ color: getCatColor(book.category), opacity: 0.3 }} />
             </div>
           )}
         </div>
@@ -1729,41 +2034,50 @@ function BookDetailPage({ currentUser, onOpenAuth }) {
           <div className="page-eyebrow">
             <div className="eyebrow-line" />
             <span className="eyebrow-text">
-              {book.category || "Uncategorized"} · {book.visibility === "private" ? "Private Vault" : "Public Archive"}
+              {book.category || "General"} · {book.visibility === "private" ? "Private Collection" : "Public Library"}
             </span>
           </div>
+
           <h1 className="detail-title">{book.title}</h1>
           <p className="detail-author">by {book.author || "Unknown Author"}</p>
-          {book.description && (
-            <p className="detail-description">{book.description}</p>
+
+          {book.seriesName && (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", background: "rgba(255,205,91,0.15)", borderRadius: 999, color: "#ffcd5b", fontSize: 12, fontWeight: 700, marginBottom: 20 }}>
+              <Layers size={14} /> Part of {book.seriesName} {book.seriesOrder ? `(Book #${book.seriesOrder})` : ""}
+            </div>
           )}
+
+          {book.description && <p className="detail-description">{book.description}</p>}
 
           <div className="detail-actions">
             {book.fileKey ? (
-              <button className="btn btn-primary" onClick={() => alert(`Document (${book.fileType?.toUpperCase()}) will launch in online reader in upcoming update!`)}>
-                <BookOpen size={16} /> Read Document ({book.fileType?.toUpperCase() || "FILE"})
+              <button
+                className="btn btn-primary"
+                onClick={() => navigate(`/read/${book.bookId}`)}
+              >
+                <BookOpen size={16} /> Read Online ({book.fileType?.toUpperCase() || "DOCUMENT"})
               </button>
             ) : (
-              <span style={{ fontSize: 13, color: "#9b8f7b", fontStyle: "italic" }}>
-                Catalog reference entry (no document attached)
+              <span style={{ fontSize: 13, color: "#71717a", fontStyle: "italic" }}>
+                Catalog reference only (no document attached)
               </span>
             )}
 
-            {isOwner && (
+            {canModify && (
               <>
                 <button className="btn btn-secondary" onClick={() => navigate(`/books/${book.bookId}/edit`)}>
-                  <Pencil size={16} /> Edit
+                  <Pencil size={15} /> Edit Book
                 </button>
                 <button
                   className="btn btn-danger"
                   onClick={async () => {
-                    if (window.confirm(`Delete "${book.title}" permanently from Obsidian Archive?`)) {
+                    if (window.confirm(`Delete "${book.title}" from Obsidian Archive?`)) {
                       await api.deleteBook(book.bookId);
                       navigate("/library");
                     }
                   }}
                 >
-                  <Trash2 size={16} /> Delete
+                  <Trash2 size={15} /> Delete Book
                 </button>
               </>
             )}
@@ -1774,8 +2088,8 @@ function BookDetailPage({ currentUser, onOpenAuth }) {
   );
 }
 
-// ── PAGE 6: EDIT BOOK PAGE ───────────────────────────────────────────────────
-function EditBookPage({ currentUser }) {
+// ── PAGE 6: EDIT BOOK ────────────────────────────────────────────────────────
+function EditBookPage({ currentUser, isSuperAdmin }) {
   const { bookId } = useParams();
   const navigate = useNavigate();
   const [formData, setFormData] = useState(null);
@@ -1790,7 +2104,9 @@ function EditBookPage({ currentUser }) {
           author: b.author || "",
           category: b.category || CATEGORIES[0],
           description: b.description || "",
-          visibility: b.visibility || "public"
+          visibility: b.visibility || "public",
+          seriesName: b.seriesName || "",
+          seriesOrder: b.seriesOrder || ""
         });
       } catch {
         navigate("/library");
@@ -1800,11 +2116,7 @@ function EditBookPage({ currentUser }) {
   }, [bookId, navigate]);
 
   if (!formData) {
-    return (
-      <div className="loading-center">
-        <Loader2 size={40} style={{ color: "#ffcd5b" }} className="spin" />
-      </div>
-    );
+    return <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>;
   }
 
   const handleUpdate = async (e) => {
@@ -1820,7 +2132,7 @@ function EditBookPage({ currentUser }) {
   };
 
   return (
-    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
+    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
       <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ marginBottom: 28 }}>
         <ArrowLeft size={16} /> Back
       </button>
@@ -1828,7 +2140,7 @@ function EditBookPage({ currentUser }) {
       <div className="page-header">
         <div className="page-eyebrow">
           <div className="eyebrow-line" />
-          <span className="eyebrow-text">Modify Tome</span>
+          <span className="eyebrow-text">Modify Entry</span>
         </div>
         <h1 className="page-title">Edit: {formData.title}</h1>
       </div>
@@ -1857,32 +2169,53 @@ function EditBookPage({ currentUser }) {
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
           >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div className="field">
-          <label>Privacy & Visibility</label>
+          <label>Privacy</label>
           <select
             value={formData.visibility}
             onChange={(e) => setFormData({ ...formData, visibility: e.target.value })}
           >
-            <option value="public">Public (Visible in public library)</option>
-            <option value="private">Private (Vaulted to collection)</option>
+            <option value="public">Public</option>
+            <option value="private">Private</option>
           </select>
         </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+          <div className="field">
+            <label>Series Title (Optional)</label>
+            <input
+              type="text"
+              placeholder="e.g. Red Rising Saga"
+              value={formData.seriesName}
+              onChange={(e) => setFormData({ ...formData, seriesName: e.target.value })}
+            />
+          </div>
+          <div className="field">
+            <label>Book #</label>
+            <input
+              type="number"
+              placeholder="1"
+              value={formData.seriesOrder}
+              onChange={(e) => setFormData({ ...formData, seriesOrder: e.target.value })}
+            />
+          </div>
+        </div>
+
         <div className="field">
-          <label>Synopsis / Description</label>
+          <label>Synopsis</label>
           <textarea
             rows={4}
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           />
         </div>
+
         <div style={{ marginTop: 24, display: "flex", gap: 12 }}>
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? <><Loader2 size={16} className="spin" /> Updating…</> : <><Save size={16} /> Save Changes</>}
+            {saving ? <><Loader2 size={16} className="spin" /> Saving…</> : <><Save size={16} /> Save Changes</>}
           </button>
           <button type="button" className="btn btn-secondary" onClick={() => navigate(-1)} disabled={saving}>
             Cancel
@@ -1893,23 +2226,180 @@ function EditBookPage({ currentUser }) {
   );
 }
 
-// ── PAGE 7: SETTINGS PAGE ────────────────────────────────────────────────────
-function SettingsPage({ currentUser, onOpenAuth }) {
-  const [profile, setProfile] = useState({ displayName: "", requestNotifications: true });
+// ── PAGE 7: IN-BROWSER ONLINE BOOK READER ───────────────────────────────────
+function OnlineReaderPage({ currentUser }) {
+  const { bookId } = useParams();
+  const navigate = useNavigate();
+  const [streamInfo, setStreamInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Reader Settings
+  const [theme, setTheme] = useState("dark"); // "dark" | "sepia" | "light"
+  const [fontSize, setFontSize] = useState(18);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const fetchReadUrl = async () => {
+      setLoading(true);
+      try {
+        const info = await api.getBookReadUrl(bookId);
+        setStreamInfo(info);
+      } catch (err) {
+        setError(err.message || "Failed to open document.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReadUrl();
+  }, [bookId]);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="reader-shell reader-theme-dark" style={{ alignItems: "center", justifyContent: "center" }}>
+        <Loader2 size={44} color="#ffcd5b" className="spin" />
+        <p style={{ marginTop: 16, fontSize: 14, fontWeight: 700 }}>Opening reader…</p>
+      </div>
+    );
+  }
+
+  if (error || !streamInfo) {
+    return (
+      <div className="reader-shell reader-theme-dark" style={{ alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <AlertTriangle size={44} style={{ color: "#f87171", marginBottom: 12 }} />
+        <h2>Cannot Open Book</h2>
+        <p style={{ color: "#a1a1aa", marginTop: 6, marginBottom: 20 }}>{error}</p>
+        <button className="btn btn-secondary" onClick={() => navigate(`/books/${bookId}`)}>
+          <ArrowLeft size={16} /> Back to Book
+        </button>
+      </div>
+    );
+  }
+
+  const isPdf = (streamInfo.fileType || "").toLowerCase() === "pdf";
+
+  return (
+    <div className={`reader-shell reader-theme-${theme}`}>
+      {/* READER HEADER */}
+      <header className="reader-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <button className="icon-btn" onClick={() => navigate(`/books/${bookId}`)} title="Exit Reader">
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800 }}>{streamInfo.title}</div>
+            <div style={{ fontSize: 11, opacity: 0.7 }}>{streamInfo.author || "Reader Mode"}</div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* THEME TOGGLES */}
+          <button
+            className="icon-btn"
+            style={{ opacity: theme === "dark" ? 1 : 0.4 }}
+            onClick={() => setTheme("dark")}
+            title="Dark Theme"
+          >
+            <Moon size={16} />
+          </button>
+          <button
+            className="icon-btn"
+            style={{ opacity: theme === "sepia" ? 1 : 0.4 }}
+            onClick={() => setTheme("sepia")}
+            title="Sepia Theme"
+          >
+            <Coffee size={16} />
+          </button>
+          <button
+            className="icon-btn"
+            style={{ opacity: theme === "light" ? 1 : 0.4 }}
+            onClick={() => setTheme("light")}
+            title="Light Theme"
+          >
+            <Sun size={16} />
+          </button>
+
+          {!isPdf && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
+              <button className="icon-btn" onClick={() => setFontSize(Math.max(14, fontSize - 2))} title="Smaller Font">
+                <span style={{ fontSize: 12, fontWeight: 800 }}>A-</span>
+              </button>
+              <button className="icon-btn" onClick={() => setFontSize(Math.min(28, fontSize + 2))} title="Larger Font">
+                <span style={{ fontSize: 15, fontWeight: 800 }}>A+</span>
+              </button>
+            </div>
+          )}
+
+          <button className="icon-btn" onClick={toggleFullscreen} title="Fullscreen">
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+        </div>
+      </header>
+
+      {/* READER CONTENT BODY */}
+      <div className="reader-body">
+        {isPdf ? (
+          /* PDF VIEWER EMBED */
+          <iframe
+            src={streamInfo.readUrl}
+            style={{ width: "100%", height: "calc(100vh - 80px)", border: "none", borderRadius: 8 }}
+            title={streamInfo.title}
+          />
+        ) : (
+          /* EPUB / DOCUMENT READER VIEW */
+          <div className="reader-content" style={{ fontSize: `${fontSize}px` }}>
+            <div style={{ textAlign: "center", marginBottom: 40, paddingBottom: 24, borderBottom: "1px solid rgba(128,128,128,0.2)" }}>
+              <h1 style={{ fontSize: "2.2em", fontWeight: 700, marginBottom: 8 }}>{streamInfo.title}</h1>
+              <p style={{ fontSize: "1em", opacity: 0.75 }}>by {streamInfo.author || "Unknown"}</p>
+            </div>
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <p style={{ lineHeight: 1.8, marginBottom: 24 }}>
+                Document loaded into secure reading mode.
+              </p>
+              <a
+                href={streamInfo.readUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-primary"
+                style={{ display: "inline-flex" }}
+              >
+                <ExternalLink size={16} /> Open in Dedicated Document Viewer
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── PAGE 8: USER PROFILE PAGE ────────────────────────────────────────────────
+function UserProfilePage({ currentUser, onOpenAuth, isSuperAdmin }) {
+  const [profile, setProfile] = useState({ displayName: "", bio: "", requestNotifications: true });
   const [saving, setSaving] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
       if (!currentUser) return;
       try {
         const p = await api.getProfile();
-        if (p) setProfile({ displayName: p.displayName || "", requestNotifications: p.requestNotifications ?? true });
-      } catch {
-        // Fallback
-      } finally {
-        setLoaded(true);
-      }
+        if (p) setProfile({
+          displayName: p.displayName || currentUser.name,
+          bio: p.bio || "",
+          requestNotifications: p.requestNotifications ?? true
+        });
+      } catch {}
     };
     loadProfile();
   }, [currentUser]);
@@ -1917,11 +2407,10 @@ function SettingsPage({ currentUser, onOpenAuth }) {
   if (!currentUser) {
     return (
       <div className="page">
-        <div className="empty-vault-card">
-          <div className="empty-vault-icon"><Lock size={36} /></div>
-          <h2>Authentication Required</h2>
-          <p style={{ color: "#a1a1aa", fontSize: 14 }}>Sign in to manage your profile and notifications.</p>
-          <button className="btn btn-primary" onClick={() => onOpenAuth("signin")}>
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 500, margin: "40px auto" }}>
+          <User size={44} style={{ color: "#ffcd5b", margin: "0 auto 16px" }} />
+          <h2>Sign In to View Profile</h2>
+          <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => onOpenAuth("signin")}>
             <LogIn size={16} /> Sign In
           </button>
         </div>
@@ -1931,28 +2420,46 @@ function SettingsPage({ currentUser, onOpenAuth }) {
 
   const handleSave = async () => {
     setSaving(true);
+    setSavedSuccess(false);
     try {
       await api.updateProfile(profile);
-      alert("Settings saved successfully!");
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err) {
-      alert(err.message || "Failed to update settings.");
+      alert(err.message || "Failed to update profile.");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
+    <motion.div className="page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
       <div className="page-header">
         <div className="page-eyebrow">
           <div className="eyebrow-line" />
-          <span className="eyebrow-text">Preferences</span>
+          <span className="eyebrow-text">Reader Identity</span>
         </div>
-        <h1 className="page-title">Account Settings</h1>
-        <p className="page-sub">Manage your public scholar profile and community notifications.</p>
+        <h1 className="page-title">My Profile</h1>
+        <p className="page-sub">Customize your reader persona and notifications.</p>
       </div>
 
-      <div className="editor-card glass-panel" style={{ maxWidth: 580 }}>
+      <div className="editor-card glass-panel" style={{ maxWidth: 600 }}>
+        {/* AVATAR BANNER */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, paddingBottom: 24, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#ffcd5b", color: "#14161b", fontSize: 26, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {currentUser.name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>{currentUser.name}</div>
+            <div style={{ fontSize: 13, color: "#a1a1aa" }}>{currentUser.email}</div>
+            {isSuperAdmin && (
+              <div style={{ marginTop: 6 }}>
+                <span className="admin-badge"><Shield size={11} /> Super Admin</span>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="field">
           <label>Display Name</label>
           <input
@@ -1961,15 +2468,22 @@ function SettingsPage({ currentUser, onOpenAuth }) {
             onChange={(e) => setProfile({ ...profile, displayName: e.target.value })}
           />
         </div>
+
         <div className="field">
-          <label>Email Address</label>
-          <input type="text" value={currentUser.email} disabled style={{ opacity: 0.6 }} />
+          <label>Reader Bio / Favorite Genres</label>
+          <textarea
+            rows={3}
+            placeholder="e.g. Sci-Fi enthusiast, collector of epic fantasy novels…"
+            value={profile.bio}
+            onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+          />
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "24px 0", borderTop: "1px solid rgba(78,70,53,0.3)", paddingTop: 20 }}>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "24px 0", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 20 }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#e2e2e6" }}>Request Notifications</div>
-            <div style={{ fontSize: 12, color: "#9b8f7b", marginTop: 2 }}>
-              Notify me when other readers submit new book requests
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Book Request Alerts</div>
+            <div style={{ fontSize: 12, color: "#a1a1aa", marginTop: 2 }}>
+              Get notified when books you requested are uploaded by fellow readers
             </div>
           </div>
           <input
@@ -1979,8 +2493,15 @@ function SettingsPage({ currentUser, onOpenAuth }) {
             onChange={(e) => setProfile({ ...profile, requestNotifications: e.target.checked })}
           />
         </div>
+
+        {savedSuccess && (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(74,222,128,0.15)", color: "#4ADE80", fontSize: 13, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+            <CheckCheck size={16} /> Profile saved successfully!
+          </div>
+        )}
+
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 size={16} className="spin" /> : <><Save size={16} /> Save Changes</>}
+          {saving ? <Loader2 size={16} className="spin" /> : <><Save size={16} /> Save Profile</>}
         </button>
       </div>
     </motion.div>

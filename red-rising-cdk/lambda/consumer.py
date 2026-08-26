@@ -9,11 +9,13 @@ s3 = boto3.client('s3')
 
 BOOKS_TABLE = os.environ.get('BOOKS_TABLE')
 REQUESTS_TABLE = os.environ.get('REQUESTS_TABLE')
+NOTIFICATIONS_TABLE = os.environ.get('NOTIFICATIONS_TABLE')
 COVERS_BUCKET = os.environ.get('COVERS_BUCKET')
 FILES_BUCKET = os.environ.get('FILES_BUCKET')
 
-books_table = dynamodb.Table(BOOKS_TABLE)
-requests_table = dynamodb.Table(REQUESTS_TABLE)
+books_table = dynamodb.Table(BOOKS_TABLE) if BOOKS_TABLE else None
+requests_table = dynamodb.Table(REQUESTS_TABLE) if REQUESTS_TABLE else None
+notifications_table = dynamodb.Table(NOTIFICATIONS_TABLE) if NOTIFICATIONS_TABLE else None
 
 def delete_s3_object(bucket, key):
     if not bucket or not key:
@@ -23,8 +25,47 @@ def delete_s3_object(bucket, key):
     except Exception as e:
         print(f"Error deleting s3://{bucket}/{key}: {e}")
 
+def notify_matching_requesters(book_id, book_title, uploader_name, now):
+    """Auto-fulfill matching open requests and notify requesters."""
+    if not requests_table or not notifications_table or not book_title:
+        return
+    try:
+        # Scan open requests
+        resp = requests_table.scan(
+            FilterExpression="#s = :open",
+            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeValues={":open": "open"}
+        )
+        for req in resp.get('Items', []):
+            req_title = req.get('title', '').strip().lower()
+            if req_title and req_title == book_title.strip().lower():
+                # Fulfill request
+                requests_table.update_item(
+                    Key={'requestId': req['requestId']},
+                    UpdateExpression="SET #s = :s, fulfilledBy = :fb, fulfilledBookId = :fbi",
+                    ExpressionAttributeNames={'#s': 'status'},
+                    ExpressionAttributeValues={
+                        ':s': 'fulfilled',
+                        ':fb': uploader_name,
+                        ':fbi': book_id
+                    }
+                )
+                # Send in-app notification
+                notifications_table.put_item(Item={
+                    'userId': req['requesterId'],
+                    'notificationId': str(uuid.uuid4()),
+                    'title': 'Book Request Available!',
+                    'message': f'"{book_title}" requested by you was just uploaded by {uploader_name}!',
+                    'bookId': book_id,
+                    'isRead': False,
+                    'createdAt': now
+                })
+    except Exception as e:
+        print(f"Error notifying requesters: {e}")
+
 def process_message(body):
     operation = body.get('operation')
+    is_admin = bool(body.get('isAdmin', False))
     now = datetime.now(timezone.utc).isoformat()
     
     if operation == "CREATE_BOOK":
@@ -40,6 +81,13 @@ def process_message(body):
             'createdAt': now,
             'updatedAt': now
         }
+        if body.get('seriesName'):
+            item['seriesName'] = body['seriesName'].strip()
+        if body.get('seriesOrder'):
+            try:
+                item['seriesOrder'] = int(body['seriesOrder'])
+            except:
+                pass
         if body.get('coverKey'):
             item['coverKey'] = body['coverKey']
         if body.get('fileKey'):
@@ -48,7 +96,13 @@ def process_message(body):
             item['fileType'] = body['fileType']
         if body.get('fileSizeBytes'):
             item['fileSizeBytes'] = int(body['fileSizeBytes'])
+
         books_table.put_item(Item=item)
+
+        # If public book, check for matching open requests and notify
+        if item.get('visibility') == 'public':
+            uploader_name = body.get('uploaderName', 'A fellow reader')
+            notify_matching_requesters(book_id, item['title'], uploader_name, now)
         
     elif operation == "UPDATE_BOOK":
         book_id = body.get('bookId')
@@ -56,20 +110,28 @@ def process_message(body):
         resp = books_table.get_item(Key={'bookId': book_id})
         book = resp.get('Item')
         
-        if not book or book.get('ownerId') != owner_id:
-            print(f"Update skipped: Book {book_id} not found or unauthorized")
+        if not book:
+            print(f"Update skipped: Book {book_id} not found")
+            return
+            
+        if book.get('ownerId') != owner_id and not is_admin:
+            print(f"Update skipped: Unauthorized for book {book_id}")
             return
             
         update_exp = "SET updatedAt = :upd"
         exp_vals = {':upd': now}
         exp_names = {}
         
-        fields = ['title', 'author', 'category', 'description', 'coverKey', 'fileKey', 'fileType', 'fileSizeBytes', 'visibility']
+        fields = ['title', 'author', 'category', 'description', 'coverKey', 'fileKey', 'fileType', 'fileSizeBytes', 'visibility', 'seriesName', 'seriesOrder']
         for field in fields:
             if field in body:
+                val = body[field]
+                if field == 'seriesOrder':
+                    try: val = int(val)
+                    except: continue
                 update_exp += f", #{field} = :{field}"
                 exp_names[f"#{field}"] = field
-                exp_vals[f":{field}"] = body[field]
+                exp_vals[f":{field}"] = val
                 
         kwargs = {
             'Key': {'bookId': book_id},
@@ -87,8 +149,11 @@ def process_message(body):
         resp = books_table.get_item(Key={'bookId': book_id})
         book = resp.get('Item')
         
-        if not book or book.get('ownerId') != owner_id:
-            print(f"Delete skipped: Book {book_id} not found or unauthorized")
+        if not book:
+            return
+            
+        if book.get('ownerId') != owner_id and not is_admin:
+            print(f"Delete skipped: Unauthorized for book {book_id}")
             return
             
         delete_s3_object(COVERS_BUCKET, book.get('coverKey'))
@@ -101,7 +166,7 @@ def process_message(body):
         for b_id in book_ids:
             resp = books_table.get_item(Key={'bookId': b_id})
             book = resp.get('Item')
-            if book and book.get('ownerId') == owner_id:
+            if book and (book.get('ownerId') == owner_id or is_admin):
                 delete_s3_object(COVERS_BUCKET, book.get('coverKey'))
                 delete_s3_object(FILES_BUCKET, book.get('fileKey'))
                 books_table.delete_item(Key={'bookId': b_id})
@@ -123,6 +188,10 @@ def process_message(body):
         
     elif operation == "FULFILL_REQUEST":
         req_id = body.get('requestId')
+        book_id = body.get('fulfilledBookId')
+        resp = requests_table.get_item(Key={'requestId': req_id})
+        req = resp.get('Item')
+
         requests_table.update_item(
             Key={'requestId': req_id},
             UpdateExpression="SET #s = :s, fulfilledBy = :fb, fulfilledBookId = :fbi",
@@ -130,9 +199,20 @@ def process_message(body):
             ExpressionAttributeValues={
                 ':s': 'fulfilled',
                 ':fb': body.get('fulfilledBy'),
-                ':fbi': body.get('fulfilledBookId')
+                ':fbi': book_id
             }
         )
+
+        if req and notifications_table:
+            notifications_table.put_item(Item={
+                'userId': req['requesterId'],
+                'notificationId': str(uuid.uuid4()),
+                'title': 'Book Request Fulfilled!',
+                'message': f'"{req.get("title")}" has been fulfilled by a reader!',
+                'bookId': book_id,
+                'isRead': False,
+                'createdAt': now
+            })
         
     elif operation == "DELETE_REQUEST":
         req_id = body.get('requestId')
@@ -140,12 +220,26 @@ def process_message(body):
         resp = requests_table.get_item(Key={'requestId': req_id})
         req = resp.get('Item')
         
-        if not req or req.get('requesterId') != owner_id:
-            print(f"Delete skipped: Request {req_id} not found or unauthorized")
+        if not req:
+            return
+            
+        if req.get('requesterId') != owner_id and not is_admin:
+            print(f"Delete request skipped: Unauthorized for {req_id}")
             return
             
         delete_s3_object(COVERS_BUCKET, req.get('coverKey'))
         requests_table.delete_item(Key={'requestId': req_id})
+
+    elif operation == "MARK_NOTIFICATION_READ":
+        notif_id = body.get('notificationId')
+        user_id = body.get('userId')
+        if notif_id and user_id and notifications_table:
+            notifications_table.update_item(
+                Key={'userId': user_id, 'notificationId': notif_id},
+                UpdateExpression="SET #r = :r",
+                ExpressionAttributeNames={'#r': 'isRead'},
+                ExpressionAttributeValues={':r': True}
+            )
 
 def lambda_handler(event, context):
     for record in event.get('Records', []):
