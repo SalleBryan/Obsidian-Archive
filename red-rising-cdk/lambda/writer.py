@@ -28,6 +28,12 @@ def lambda_handler(event, context):
     try:
         body = json.loads(event.get('body', '{}'))
         operation = body.get('operation')
+
+        # Flatten nested payload into top-level body
+        # Frontend sends { operation: "CREATE_BOOK", payload: { title, author, ... } }
+        # Consumer expects { operation: "CREATE_BOOK", title, author, ... }
+        payload = body.pop('payload', {})
+        body.update(payload)
         
         if operation not in ALLOWED_OPERATIONS:
             return respond(400, {"error": "Invalid operation"})
