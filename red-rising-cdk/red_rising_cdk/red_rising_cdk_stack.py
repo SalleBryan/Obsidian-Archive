@@ -162,6 +162,21 @@ class RedRisingCdkStack(Stack):
             projection_type=dynamodb.ProjectionType.ALL,
         )
 
+        notifications_table = dynamodb.Table(
+            self, "NotificationsTable",
+            table_name="obsidian-notifications",
+            partition_key=dynamodb.Attribute(
+                name="userId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="notificationId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+
         # ══════════════════════════════════════════════════════════════════════
         # 3. SQS — Main queue + Dead Letter Queue
         # ══════════════════════════════════════════════════════════════════════
@@ -224,6 +239,7 @@ class RedRisingCdkStack(Stack):
             "BOOKS_TABLE": books_table.table_name,
             "PROFILES_TABLE": profiles_table.table_name,
             "REQUESTS_TABLE": requests_table.table_name,
+            "NOTIFICATIONS_TABLE": notifications_table.table_name,
             "COVERS_BUCKET": covers_bucket.bucket_name,
             "FILES_BUCKET": files_bucket.bucket_name,
         }
@@ -253,6 +269,7 @@ class RedRisingCdkStack(Stack):
         books_table.grant_read_write_data(consumer_fn)
         profiles_table.grant_read_write_data(consumer_fn)
         requests_table.grant_read_write_data(consumer_fn)
+        notifications_table.grant_read_write_data(consumer_fn)
         covers_bucket.grant_read_write(consumer_fn)
         files_bucket.grant_read_write(consumer_fn)
         consumer_fn.add_event_source(
@@ -271,8 +288,9 @@ class RedRisingCdkStack(Stack):
         )
         books_table.grant_read_data(reader_fn)
         requests_table.grant_read_data(reader_fn)
+        notifications_table.grant_read_data(reader_fn)
 
-        # 5d. Upload: Presigned URLs for covers and book files
+        # 5d. Upload: Presigned URLs for covers, book files, and reader streaming
         upload_fn = _lambda.Function(
             self, "UploadFn",
             function_name="obsidian-upload",
@@ -282,8 +300,9 @@ class RedRisingCdkStack(Stack):
             timeout=Duration.seconds(10),
             environment=common_env,
         )
-        covers_bucket.grant_put(upload_fn)
-        files_bucket.grant_put(upload_fn)
+        covers_bucket.grant_read_write(upload_fn)
+        files_bucket.grant_read_write(upload_fn)
+        books_table.grant_read_data(upload_fn)
 
         # 5e. Profile: User profile CRUD
         profile_fn = _lambda.Function(
@@ -402,6 +421,15 @@ class RedRisingCdkStack(Stack):
         profile_res.add_method("PUT", apigw.LambdaIntegration(profile_fn),
                                authorizer=cognito_authorizer,
                                authorization_type=apigw.AuthorizationType.COGNITO)
+
+        # ── /notifications (authenticated GET/PUT) ──
+        notifications_res = api.root.add_resource("notifications")
+        notifications_res.add_method("GET", apigw.LambdaIntegration(reader_fn),
+                                     authorizer=cognito_authorizer,
+                                     authorization_type=apigw.AuthorizationType.COGNITO)
+        notifications_res.add_method("PUT", apigw.LambdaIntegration(writer_fn),
+                                     authorizer=cognito_authorizer,
+                                     authorization_type=apigw.AuthorizationType.COGNITO)
 
         # ══════════════════════════════════════════════════════════════════════
         # 7. STACK OUTPUTS
