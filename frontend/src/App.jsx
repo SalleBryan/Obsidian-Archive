@@ -30,6 +30,7 @@ import {
   resendSignUpCode,
   signInWithRedirect
 } from "aws-amplify/auth";
+import ePub from "epubjs";
 import "./amplifyConfig";
 
 // ── API CONFIGURATION ─────────────────────────────────────────────────────────
@@ -2266,16 +2267,16 @@ function OnlineReaderPage({ currentUser }) {
 
   if (loading) {
     return (
-      <div className="reader-shell reader-theme-dark" style={{ alignItems: "center", justifyContent: "center" }}>
+      <div className="reader-shell reader-theme-dark" style={{ alignItems: "center", justifyContent: "center", height: "100vh" }}>
         <Loader2 size={44} color="#ffcd5b" className="spin" />
-        <p style={{ marginTop: 16, fontSize: 14, fontWeight: 700 }}>Opening reader…</p>
+        <p style={{ marginTop: 16, fontSize: 14, fontWeight: 700 }}>Opening book in reader…</p>
       </div>
     );
   }
 
   if (error || !streamInfo) {
     return (
-      <div className="reader-shell reader-theme-dark" style={{ alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div className="reader-shell reader-theme-dark" style={{ alignItems: "center", justifyContent: "center", padding: 20, height: "100vh" }}>
         <AlertTriangle size={44} style={{ color: "#f87171", marginBottom: 12 }} />
         <h2>Cannot Open Book</h2>
         <p style={{ color: "#a1a1aa", marginTop: 6, marginBottom: 20 }}>{error}</p>
@@ -2289,9 +2290,9 @@ function OnlineReaderPage({ currentUser }) {
   const isPdf = (streamInfo.fileType || "").toLowerCase() === "pdf";
 
   return (
-    <div className={`reader-shell reader-theme-${theme}`}>
+    <div className={`reader-shell reader-theme-${theme}`} style={{ height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       {/* READER HEADER */}
-      <header className="reader-header">
+      <header className="reader-header" style={{ flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <button className="icon-btn" onClick={() => navigate(`/books/${bookId}`)} title="Exit Reader">
             <ArrowLeft size={18} />
@@ -2334,7 +2335,7 @@ function OnlineReaderPage({ currentUser }) {
               <button className="icon-btn" onClick={() => setFontSize(Math.max(14, fontSize - 2))} title="Smaller Font">
                 <span style={{ fontSize: 12, fontWeight: 800 }}>A-</span>
               </button>
-              <button className="icon-btn" onClick={() => setFontSize(Math.min(28, fontSize + 2))} title="Larger Font">
+              <button className="icon-btn" onClick={() => setFontSize(Math.min(32, fontSize + 2))} title="Larger Font">
                 <span style={{ fontSize: 15, fontWeight: 800 }}>A+</span>
               </button>
             </div>
@@ -2347,38 +2348,276 @@ function OnlineReaderPage({ currentUser }) {
       </header>
 
       {/* READER CONTENT BODY */}
-      <div className="reader-body">
+      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         {isPdf ? (
-          /* PDF VIEWER EMBED */
-          <iframe
-            src={streamInfo.readUrl}
-            style={{ width: "100%", height: "calc(100vh - 80px)", border: "none", borderRadius: 8 }}
-            title={streamInfo.title}
-          />
+          <PdfViewer readUrl={streamInfo.readUrl} title={streamInfo.title} />
         ) : (
-          /* EPUB / DOCUMENT READER VIEW */
-          <div className="reader-content" style={{ fontSize: `${fontSize}px` }}>
-            <div style={{ textAlign: "center", marginBottom: 40, paddingBottom: 24, borderBottom: "1px solid rgba(128,128,128,0.2)" }}>
-              <h1 style={{ fontSize: "2.2em", fontWeight: 700, marginBottom: 8 }}>{streamInfo.title}</h1>
-              <p style={{ fontSize: "1em", opacity: 0.75 }}>by {streamInfo.author || "Unknown"}</p>
+          <EpubViewer readUrl={streamInfo.readUrl} theme={theme} fontSize={fontSize} title={streamInfo.title} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EpubViewer({ readUrl, theme, fontSize, title }) {
+  const viewerRef = useRef(null);
+  const bookRef = useRef(null);
+  const renditionRef = useRef(null);
+  const [loadingBook, setLoadingBook] = useState(true);
+  const [toc, setToc] = useState([]);
+  const [tocOpen, setTocOpen] = useState(false);
+  const [currentChapter, setCurrentChapter] = useState("");
+  const [readingProgress, setReadingProgress] = useState(0);
+
+  const applyStyles = useCallback((rendition, currentTheme, currentFontSize) => {
+    if (!rendition) return;
+    const bg = currentTheme === "dark" ? "#111317" : currentTheme === "sepia" ? "#fbf0d9" : "#ffffff";
+    const fg = currentTheme === "dark" ? "#e4e4e7" : currentTheme === "sepia" ? "#433422" : "#18181b";
+    const linkColor = currentTheme === "dark" ? "#ffcd5b" : currentTheme === "sepia" ? "#935700" : "#2563eb";
+
+    rendition.themes.default({
+      body: {
+        color: `${fg} !important`,
+        background: `${bg} !important`,
+        "font-family": "'Lora', serif !important",
+        "font-size": `${currentFontSize}px !important`,
+        "line-height": "1.85 !important",
+        padding: "0 28px !important"
+      },
+      p: {
+        "font-size": `${currentFontSize}px !important`,
+        "line-height": "1.85 !important",
+        color: `${fg} !important`
+      },
+      h1: { color: `${fg} !important` },
+      h2: { color: `${fg} !important` },
+      h3: { color: `${fg} !important` },
+      span: { color: `${fg} !important` },
+      div: { color: `${fg} !important` },
+      a: { color: `${linkColor} !important` }
+    });
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    let book = null;
+    let rendition = null;
+
+    const loadEpub = async () => {
+      setLoadingBook(true);
+      try {
+        // Fetch raw EPUB binary into memory (prevents download prompt)
+        const res = await fetch(readUrl);
+        if (!res.ok) throw new Error("Failed to load book data");
+        const arrayBuffer = await res.arrayBuffer();
+
+        if (!isMounted || !viewerRef.current) return;
+
+        viewerRef.current.innerHTML = "";
+        book = ePub(arrayBuffer);
+        bookRef.current = book;
+
+        rendition = book.renderTo(viewerRef.current, {
+          width: "100%",
+          height: "100%",
+          flow: "paginated",
+          spread: "none"
+        });
+        renditionRef.current = rendition;
+
+        applyStyles(rendition, theme, fontSize);
+
+        await rendition.display();
+
+        // Load Table of Contents
+        const navigation = await book.loaded.navigation;
+        if (isMounted && navigation && navigation.toc) {
+          setToc(navigation.toc);
+        }
+
+        // Generate locations for progress calculation
+        await book.ready;
+        await book.locations.generate(1000);
+
+        if (isMounted) {
+          rendition.on("relocated", (location) => {
+            if (location && location.start) {
+              const cfi = location.start.cfi;
+              if (book.locations && book.locations.length()) {
+                const percent = book.locations.percentageFromCfi(cfi);
+                setReadingProgress(Math.round(percent * 100));
+              }
+              if (navigation && navigation.toc) {
+                const href = location.start.href;
+                const match = navigation.toc.find(t => t.href.includes(href) || href.includes(t.href));
+                if (match) setCurrentChapter(match.label?.trim() || "");
+              }
+            }
+          });
+        }
+      } catch (err) {
+        console.error("EPUB rendering error:", err);
+      } finally {
+        if (isMounted) setLoadingBook(false);
+      }
+    };
+
+    loadEpub();
+
+    return () => {
+      isMounted = false;
+      if (book) {
+        try { book.destroy(); } catch {}
+      }
+    };
+  }, [readUrl, applyStyles]);
+
+  // Update theme & font size on props change
+  useEffect(() => {
+    if (renditionRef.current) {
+      applyStyles(renditionRef.current, theme, fontSize);
+    }
+  }, [theme, fontSize, applyStyles]);
+
+  // Key navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {
+        renditionRef.current?.next();
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        renditionRef.current?.prev();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const next = () => renditionRef.current?.next();
+  const prev = () => renditionRef.current?.prev();
+  const goTo = (href) => {
+    renditionRef.current?.display(href);
+    setTocOpen(false);
+  };
+
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", position: "relative", userSelect: "none" }}>
+      {/* CHAPTER & PROGRESS BAR */}
+      <div style={{
+        height: 38, display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 24px", fontSize: 12, borderBottom: "1px solid rgba(128,128,128,0.15)",
+        opacity: 0.85, flexShrink: 0
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => setTocOpen(!tocOpen)}>
+          <Bookmark size={14} color="#ffcd5b" />
+          <span style={{ fontWeight: 700 }}>{currentChapter || "Chapters / Contents"}</span>
+          <ChevronDown size={12} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontWeight: 700 }}>{readingProgress}% completed</span>
+        </div>
+      </div>
+
+      {/* TOC DRAWER */}
+      <AnimatePresence>
+        {tocOpen && (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            style={{
+              position: "absolute", top: 38, left: 0, bottom: 0, width: 300,
+              background: theme === "dark" ? "#14161b" : theme === "sepia" ? "#f4e7cd" : "#f4f4f5",
+              zIndex: 30, borderRight: "1px solid rgba(128,128,128,0.2)",
+              padding: 18, overflowY: "auto", boxShadow: "6px 0 30px rgba(0,0,0,0.5)"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "#ffcd5b" }}>Table of Contents</span>
+              <button className="icon-btn" onClick={() => setTocOpen(false)} style={{ width: 28, height: 28 }}><X size={14} /></button>
             </div>
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <p style={{ lineHeight: 1.8, marginBottom: 24 }}>
-                Document loaded into secure reading mode.
-              </p>
-              <a
-                href={streamInfo.readUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-primary"
-                style={{ display: "inline-flex" }}
-              >
-                <ExternalLink size={16} /> Open in Dedicated Document Viewer
-              </a>
-            </div>
+            {toc.length === 0 ? (
+              <p style={{ fontSize: 12, opacity: 0.6 }}>No chapters listed in book metadata.</p>
+            ) : (
+              toc.map((item, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => goTo(item.href)}
+                  style={{
+                    padding: "10px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    cursor: "pointer", marginBottom: 4, transition: "all 0.15s",
+                    color: theme === "dark" ? "#e4e4e7" : "#18181b"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,205,91,0.15)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                >
+                  {item.label?.trim() || `Chapter ${idx + 1}`}
+                </div>
+              ))
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* READING STAGE */}
+      <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        {/* PREV BUTTON */}
+        <button
+          onClick={prev}
+          style={{
+            position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)",
+            width: 48, height: 48, borderRadius: "50%", border: "none",
+            background: "rgba(0,0,0,0.4)", color: "#fff", cursor: "pointer", zIndex: 10,
+            display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)",
+            transition: "all 0.2s"
+          }}
+          title="Previous Page (Left Arrow)"
+        >
+          <ArrowLeft size={22} />
+        </button>
+
+        {/* EPUB CONTAINER */}
+        <div
+          ref={viewerRef}
+          style={{
+            width: "100%", height: "100%", maxWidth: 860,
+            padding: "20px 40px", boxSizing: "border-box"
+          }}
+        />
+
+        {/* NEXT BUTTON */}
+        <button
+          onClick={next}
+          style={{
+            position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)",
+            width: 48, height: 48, borderRadius: "50%", border: "none",
+            background: "rgba(0,0,0,0.4)", color: "#fff", cursor: "pointer", zIndex: 10,
+            display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)",
+            transition: "all 0.2s"
+          }}
+          title="Next Page (Right Arrow)"
+        >
+          <ArrowLeft size={22} style={{ transform: "rotate(180deg)" }} />
+        </button>
+
+        {loadingBook && (
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 20 }}>
+            <Loader2 size={40} color="#ffcd5b" className="spin" />
+            <span style={{ fontSize: 14, fontWeight: 700, marginTop: 14 }}>Rendering book chapters…</span>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function PdfViewer({ readUrl, title }) {
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+      <iframe
+        src={`${readUrl}#toolbar=0&navpanes=0`}
+        style={{ width: "100%", height: "100%", border: "none", background: "#17191f" }}
+        title={title}
+      />
     </div>
   );
 }
