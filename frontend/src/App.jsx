@@ -283,7 +283,12 @@ const STYLES = `
   a { color: inherit; text-decoration: none; }
   .shell { display: flex; min-height: 100vh; }
   
-  /* SIDEBAR */
+  /* Prevent auto-zoom on iOS Safari inputs */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  
+  /* SIDEBAR (Desktop) */
   .sidebar {
     width: 270px; background: #14161b; border-right: 1px solid rgba(255, 205, 91, 0.1);
     display: flex; flex-direction: column; justify-content: space-between;
@@ -315,46 +320,73 @@ const STYLES = `
   /* TOPBAR */
   .topbar {
     position: sticky; top: 0; z-index: 30; height: 72px;
-    background: rgba(14,16,20,0.9); backdrop-filter: blur(20px);
+    background: rgba(14,16,20,0.92); backdrop-filter: blur(20px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     display: flex; align-items: center; justify-content: space-between; padding: 0 40px;
+    gap: 16px;
   }
-  @media(max-width: 768px) { .topbar { padding: 0 16px; } }
-  .topbar-brand { display: none; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; color: #ffcd5b; cursor: pointer; }
+  @media(max-width: 768px) {
+    .topbar {
+      height: 58px;
+      padding: 0 12px;
+      gap: 10px;
+    }
+  }
+  .topbar-brand { display: none; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; color: #ffcd5b; cursor: pointer; flex-shrink: 0; }
   @media(max-width: 768px) { .topbar-brand { display: flex; } }
-  .topbar-search { position: relative; flex: 1; max-width: 440px; margin: 0 24px; }
+  
+  .topbar-search { position: relative; flex: 1; max-width: 440px; margin: 0 16px; }
+  @media(max-width: 768px) {
+    .topbar-search { margin: 0 2px; max-width: none; }
+  }
   .topbar-search input {
-    width: 100%; height: 42px; padding: 0 16px 0 44px; background: #17191f;
+    width: 100%; height: 42px; padding: 0 16px 0 42px; background: #17191f;
     border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 999px; color: #e4e4e7;
     font-family: inherit; font-size: 14px; outline: none; transition: all 0.2s;
   }
+  @media(max-width: 768px) {
+    .topbar-search input { height: 36px; padding: 0 12px 0 34px; font-size: 13px; }
+  }
   .topbar-search input:focus { border-color: #ffcd5b; box-shadow: 0 0 0 2px rgba(255,205,91,0.2); }
   .topbar-search-icon { position: absolute; left: 14px; top: 12px; color: #a1a1aa; }
+  @media(max-width: 768px) {
+    .topbar-search-icon { left: 10px; top: 9px; width: 16px; height: 16px; }
+  }
   
-  .topbar-actions { display: flex; align-items: center; gap: 14px; }
+  .topbar-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  @media(max-width: 768px) {
+    .topbar-actions { gap: 6px; }
+    .topbar-desktop-upload { display: none; }
+  }
+  
   .icon-btn {
-    width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent;
+    width: 38px; height: 38px; border-radius: 50%; border: none; background: transparent;
     color: #a1a1aa; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center;
-    position: relative;
+    position: relative; flex-shrink: 0;
   }
   .icon-btn:hover { background: #1c1e24; color: #ffcd5b; }
   .badge-dot {
-    position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
+    position: absolute; top: 6px; right: 6px; width: 8px; height: 8px;
     background: #ef4444; border-radius: 50%; border: 2px solid #0e1014;
   }
 
   /* User Pill on Navbar */
   .user-nav-pill {
-    display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px;
+    display: flex; align-items: center; gap: 10px; padding: 5px 12px 5px 5px;
     background: #17191f; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 999px;
-    cursor: pointer; transition: all 0.2s; user-select: none;
+    cursor: pointer; transition: all 0.2s; user-select: none; flex-shrink: 0;
   }
   .user-nav-pill:hover { border-color: #ffcd5b; background: #1f2128; }
   .user-nav-avatar {
-    width: 32px; height: 32px; border-radius: 50%; background: #ffcd5b; color: #1a1300;
-    font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 50%; background: #ffcd5b; color: #1a1300;
+    font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center;
   }
   .user-nav-name { font-size: 13px; font-weight: 700; color: #e4e4e7; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  
+  @media(max-width: 768px) {
+    .user-nav-pill { padding: 3px; border-radius: 50%; background: transparent; border: none; }
+    .user-nav-name, .admin-badge, .user-nav-chevron { display: none !important; }
+  }
   
   /* Super Admin Badge */
   .admin-badge {
@@ -364,21 +396,44 @@ const STYLES = `
   }
 
   /* PAGE LAYOUT */
-  .page { padding: 36px 40px 100px; max-width: 1400px; width: 100%; }
-  @media(max-width: 768px) { .page { padding: 20px 16px 100px; } }
-  .page-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .eyebrow-line { width: 40px; height: 3px; background: #ffcd5b; border-radius: 999px; }
+  .page { padding: 32px 40px 100px; max-width: 1400px; width: 100%; }
+  @media(max-width: 768px) {
+    .page { padding: 16px 14px calc(76px + env(safe-area-inset-bottom)) 14px; }
+  }
+  .page-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .eyebrow-line { width: 36px; height: 3px; background: #ffcd5b; border-radius: 999px; }
   .eyebrow-text { font-size: 11px; font-weight: 800; color: #ffcd5b; text-transform: uppercase; letter-spacing: 0.12em; }
-  .page-title { font-size: 38px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; line-height: 1.15; }
-  .page-sub { font-size: 14px; color: #a1a1aa; margin-top: 6px; }
-  .page-header { margin-bottom: 28px; }
+  .page-title { font-size: 36px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; line-height: 1.15; }
+  @media(max-width: 768px) {
+    .page-title { font-size: 24px; }
+  }
+  .page-sub { font-size: 14px; color: #a1a1aa; margin-top: 4px; }
+  @media(max-width: 768px) {
+    .page-sub { font-size: 12px; }
+  }
+  .page-header { margin-bottom: 24px; }
+  @media(max-width: 768px) {
+    .page-header { margin-bottom: 16px; }
+  }
 
-  /* TOOLBAR & CHIPS */
-  .toolbar { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
+  /* TOOLBAR & CHIPS (Horizontal Scroll on Mobile) */
+  .toolbar {
+    display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; align-items: center;
+  }
+  @media(max-width: 768px) {
+    .toolbar {
+      overflow-x: auto; flex-wrap: nowrap; padding-bottom: 8px; margin-bottom: 16px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .toolbar::-webkit-scrollbar { display: none; }
+  }
   .cat-chip {
     padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
     cursor: pointer; transition: all 0.15s; border: 1px solid rgba(255, 255, 255, 0.12);
-    background: transparent; color: #a1a1aa; white-space: nowrap; font-family: inherit;
+    background: transparent; color: #a1a1aa; white-space: nowrap; font-family: inherit; flex-shrink: 0;
+  }
+  @media(max-width: 768px) {
+    .cat-chip { padding: 6px 13px; font-size: 12px; }
   }
   .cat-chip:hover { border-color: #ffcd5b; color: #e4e4e7; }
   .cat-chip.active { background: rgba(255,205,91,0.14); border-color: #ffcd5b; color: #ffcd5b; font-weight: 700; }
@@ -386,55 +441,76 @@ const STYLES = `
   /* Toggle Pills */
   .view-toggle {
     display: inline-flex; padding: 4px; background: #17191f; border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 20px;
   }
   .toggle-btn {
-    padding: 8px 18px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
     border: none; background: transparent; color: #a1a1aa; cursor: pointer; transition: all 0.2s;
     display: flex; align-items: center; gap: 6px; font-family: inherit;
   }
-  .toggle-btn.active { background: #ffcd5b; color: #14161b; shadow: 0 2px 10px rgba(255,205,91,0.25); }
+  @media(max-width: 768px) {
+    .toggle-btn { padding: 6px 12px; font-size: 12px; }
+  }
+  .toggle-btn.active { background: #ffcd5b; color: #14161b; box-shadow: 0 2px 10px rgba(255,205,91,0.25); }
 
-  /* BOOK GRID & CARDS */
-  .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 24px; }
+  /* BOOK GRID & CARDS (2 Columns on Mobile) */
+  .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
+  @media(max-width: 640px) {
+    .book-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  }
+  @media(max-width: 340px) {
+    .book-grid { grid-template-columns: 1fr; }
+  }
   .book-card {
     position: relative; border-radius: 12px; overflow: hidden; cursor: pointer; aspect-ratio: 2/3;
-    background: #17191f; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-    transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+    background: #17191f; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   }
-  .book-card:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0,0,0,0.7); border-color: rgba(255,205,91,0.4); }
+  @media(max-width: 640px) {
+    .book-card { border-radius: 10px; }
+  }
+  .book-card:hover { transform: translateY(-4px); box-shadow: 0 16px 32px rgba(0,0,0,0.7); border-color: rgba(255,205,91,0.4); }
   .book-card-top-bar { position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 10; }
   .book-card-badge {
-    position: absolute; top: 10px; right: 10px; z-index: 10; padding: 3px 8px; border-radius: 999px;
-    background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); font-size: 10px; font-weight: 700;
+    position: absolute; top: 8px; right: 8px; z-index: 10; padding: 3px 7px; border-radius: 999px;
+    background: rgba(0,0,0,0.82); backdrop-filter: blur(8px); font-size: 10px; font-weight: 700;
     display: flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,0.12);
   }
+  @media(max-width: 640px) {
+    .book-card-badge { top: 6px; right: 6px; padding: 2px 5px; font-size: 9px; }
+  }
   .book-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; display: block; }
-  .book-card:hover .book-card-img { transform: scale(1.05); }
+  .book-card:hover .book-card-img { transform: scale(1.04); }
   .book-overlay {
     position: absolute; inset: 0;
-    background: linear-gradient(to top, rgba(14,16,20,0.95) 0%, rgba(14,16,20,0.3) 60%, transparent 100%);
-    display: flex; flex-direction: column; justify-content: flex-end; padding: 14px;
+    background: linear-gradient(to top, rgba(14,16,20,0.96) 0%, rgba(14,16,20,0.35) 60%, transparent 100%);
+    display: flex; flex-direction: column; justify-content: flex-end; padding: 12px;
   }
-  .book-title-text { font-size: 15px; font-weight: 700; color: #fff; line-height: 1.25; }
-  .book-author-text { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 2px; }
-  .book-series-tag { font-size: 10px; color: #ffcd5b; font-weight: 700; margin-top: 4px; }
+  @media(max-width: 640px) {
+    .book-overlay { padding: 10px 8px; }
+  }
+  .book-title-text { font-size: 14px; font-weight: 700; color: #fff; line-height: 1.25; }
+  @media(max-width: 640px) {
+    .book-title-text { font-size: 13px; line-height: 1.2; }
+  }
+  .book-author-text { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 2px; }
+  .book-series-tag { font-size: 9px; color: #ffcd5b; font-weight: 700; margin-top: 3px; }
 
   /* Series Section */
-  .series-section { margin-bottom: 40px; }
+  .series-section { margin-bottom: 32px; }
   .series-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px; background: #17191f; border: 1px solid rgba(255, 205, 91, 0.2);
-    border-radius: 12px; margin-bottom: 20px;
+    padding: 12px 16px; background: #17191f; border: 1px solid rgba(255, 205, 91, 0.2);
+    border-radius: 10px; margin-bottom: 16px;
   }
-  .series-title { font-size: 18px; font-weight: 800; color: #ffcd5b; display: flex; align-items: center; gap: 8px; }
-  .series-count { font-size: 12px; color: #a1a1aa; font-weight: 600; }
+  .series-title { font-size: 16px; font-weight: 800; color: #ffcd5b; display: flex; align-items: center; gap: 8px; }
+  .series-count { font-size: 11px; color: #a1a1aa; font-weight: 600; }
 
   /* BUTTONS */
   .btn {
-    display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 20px;
+    display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px;
     border-radius: 999px; font-family: inherit; font-size: 13px; font-weight: 700;
-    cursor: pointer; transition: all 0.2s; border: none; text-decoration: none;
+    cursor: pointer; transition: all 0.2s; border: none; text-decoration: none; justify-content: center;
   }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-primary { background: #ffcd5b; color: #14161b; box-shadow: 0 4px 14px rgba(255,205,91,0.25); }
@@ -443,45 +519,66 @@ const STYLES = `
   .btn-danger:hover:not(:disabled) { background: rgba(248,113,113,0.12); border-color: #f87171; }
   .btn-secondary { background: #17191f; color: #e4e4e7; border: 1px solid rgba(255,255,255,0.12); }
   .btn-secondary:hover:not(:disabled) { background: #22252e; border-color: #ffcd5b; }
-  .btn-google {
-    background: #ffffff; color: #1f1f1f; border: 1px solid #dadce0; width: 100%;
-    justify-content: center; margin-bottom: 16px; font-weight: 600;
-  }
-  .btn-google:hover:not(:disabled) { background: #f8f9fa; border-color: #c6c6c6; }
 
-  /* GLASS PANEL & CARDS */
+  /* GLASS PANEL & DETAIL PAGE */
   .glass-panel {
     background: rgba(23,25,31,0.85); backdrop-filter: blur(16px);
     border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 12px 32px rgba(0,0,0,0.5);
   }
-  .detail-grid { display: grid; grid-template-columns: 280px 1fr; gap: 44px; align-items: start; }
-  @media(max-width: 768px) { .detail-grid { grid-template-columns: 1fr; gap: 24px; } }
+  .detail-grid { display: grid; grid-template-columns: 260px 1fr; gap: 36px; align-items: start; }
+  @media(max-width: 768px) {
+    .detail-grid { grid-template-columns: 1fr; gap: 20px; }
+  }
   .cover-wrapper {
     width: 100%; aspect-ratio: 2/3; border-radius: 12px; overflow: hidden;
-    background: #17191f; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.7); position: relative;
+    background: #17191f; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 16px 48px rgba(0,0,0,0.7); position: relative;
+  }
+  @media(max-width: 768px) {
+    .cover-wrapper { max-width: 180px; margin: 0 auto 8px auto; border-radius: 10px; }
   }
   .cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .detail-title { font-size: 36px; font-weight: 800; line-height: 1.15; margin-bottom: 6px; }
-  .detail-author { font-size: 17px; color: #ffcd5b; margin-bottom: 20px; font-weight: 600; }
-  .detail-description { font-size: 15px; line-height: 1.8; color: #d4d4d8; margin-bottom: 28px; max-width: 680px; }
-  .detail-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .detail-title { font-size: 34px; font-weight: 800; line-height: 1.15; margin-bottom: 6px; }
+  @media(max-width: 768px) {
+    .detail-title { font-size: 22px; text-align: center; }
+  }
+  .detail-author { font-size: 16px; color: #ffcd5b; margin-bottom: 16px; font-weight: 600; }
+  @media(max-width: 768px) {
+    .detail-author { font-size: 14px; text-align: center; margin-bottom: 14px; }
+  }
+  .detail-description { font-size: 14px; line-height: 1.8; color: #d4d4d8; margin-bottom: 24px; max-width: 680px; }
+  @media(max-width: 768px) {
+    .detail-description {
+      font-size: 13px; line-height: 1.7; text-align: left;
+      background: rgba(23,25,31,0.6); padding: 14px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+  }
+  .detail-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  @media(max-width: 768px) {
+    .detail-actions { flex-direction: column; width: 100%; }
+    .detail-actions .btn { width: 100%; height: 44px; }
+  }
 
   /* EDITOR / FORMS */
-  .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-  @media(max-width: 768px) { .editor-grid { grid-template-columns: 1fr; } }
-  .editor-card { border-radius: 14px; padding: 28px; }
-  .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+  .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media(max-width: 768px) { .editor-grid { grid-template-columns: 1fr; gap: 16px; } }
+  .editor-card { border-radius: 14px; padding: 24px; }
+  @media(max-width: 768px) { .editor-card { padding: 16px; border-radius: 12px; } }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
   .field label { font-size: 11px; font-weight: 700; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.08em; }
   .field input, .field select, .field textarea {
-    background: #111317; border: 1px solid rgba(255, 255, 255, 0.12); padding: 12px 16px; border-radius: 8px;
+    background: #111317; border: 1px solid rgba(255, 255, 255, 0.12); padding: 11px 14px; border-radius: 8px;
     color: #e4e4e7; font-family: inherit; font-size: 14px; width: 100%; outline: none; transition: all 0.2s;
+  }
+  @media(max-width: 768px) {
+    .field input, .field select, .field textarea { font-size: 15px; padding: 11px 12px; }
   }
   .field input:focus, .field select:focus, .field textarea:focus { border-color: #ffcd5b; box-shadow: 0 0 0 2px rgba(255,205,91,0.15); }
   .field select option { background: #17191f; }
   .upload-zone {
-    border: 2px dashed rgba(255, 255, 255, 0.18); border-radius: 10px; min-height: 130px;
+    border: 2px dashed rgba(255, 255, 255, 0.18); border-radius: 10px; min-height: 110px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; background: #111317; padding: 16px;
+    cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; background: #111317; padding: 14px;
   }
   .upload-zone:hover { border-color: #ffcd5b; background: rgba(255,205,91,0.03); }
   .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
@@ -501,9 +598,9 @@ const STYLES = `
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 280px;
+    min-height: 240px;
     width: 100%;
-    gap: 16px;
+    gap: 14px;
     color: #ffcd5b;
   }
   .fade-in {
@@ -517,11 +614,14 @@ const STYLES = `
   /* MODALS & DROPDOWNS */
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
-    display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px;
+    display: flex; align-items: center; justify-content: center; z-index: 100; padding: 14px;
   }
   .modal-box {
     background: #17191f; border: 1px solid rgba(255,205,91,0.25); border-radius: 16px;
-    width: 100%; max-width: 440px; padding: 32px; box-shadow: 0 24px 64px rgba(0,0,0,0.9);
+    width: 100%; max-width: 440px; padding: 28px; box-shadow: 0 24px 64px rgba(0,0,0,0.9);
+  }
+  @media(max-width: 768px) {
+    .modal-box { padding: 22px 16px; max-width: calc(100vw - 28px); border-radius: 14px; }
   }
 
   /* Notifications Dropdown */
@@ -529,6 +629,12 @@ const STYLES = `
     position: absolute; top: 60px; right: 240px; width: 340px; max-height: 420px;
     background: #17191f; border: 1px solid rgba(255,205,91,0.25); border-radius: 14px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.8); z-index: 50; overflow-y: auto; padding: 12px;
+  }
+  @media(max-width: 768px) {
+    .notif-dropdown {
+      position: fixed; top: 64px; left: 12px; right: 12px; width: auto;
+      max-height: 75vh; z-index: 100;
+    }
   }
   .notif-item {
     padding: 12px; border-radius: 8px; background: #111317; border: 1px solid rgba(255,255,255,0.06);
@@ -543,8 +649,13 @@ const STYLES = `
     background: #17191f; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.8); z-index: 50; padding: 8px;
   }
+  @media(max-width: 768px) {
+    .user-menu-dropdown {
+      position: fixed; top: 64px; left: 12px; right: 12px; width: auto; z-index: 100;
+    }
+  }
   .menu-item {
-    display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px;
+    display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 8px;
     font-size: 13px; font-weight: 600; color: #e4e4e7; cursor: pointer; transition: all 0.15s;
     border: none; background: transparent; width: 100%; text-align: left;
   }
@@ -554,18 +665,38 @@ const STYLES = `
   .progress-container { width: 100%; height: 8px; background: #111317; border-radius: 999px; overflow: hidden; margin: 16px 0; }
   .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #ffcd5b, #4ADE80); transition: width 0.3s ease; }
 
-  /* ONLINE READER THEMES */
+  /* ONLINE READER THEMES & MOBILE */
   .reader-shell { min-height: 100vh; display: flex; flex-direction: column; }
   .reader-theme-dark { background-color: #111317; color: #d4d4d8; }
   .reader-theme-sepia { background-color: #fbf0d9; color: #433422; }
   .reader-theme-light { background-color: #ffffff; color: #18181b; }
 
   .reader-header {
-    height: 60px; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 24px; border-bottom: 1px solid rgba(128,128,128,0.2);
+    height: 56px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; border-bottom: 1px solid rgba(128,128,128,0.2);
   }
-  .reader-body { flex: 1; display: flex; justify-content: center; padding: 32px 20px; overflow-y: auto; }
-  .reader-content { max-width: 780px; width: 100%; font-family: 'Lora', serif; line-height: 1.9; }
+  @media(max-width: 768px) {
+    .reader-header { height: 50px; padding: 0 10px; }
+  }
+
+  .epub-canvas-container {
+    width: 100%; height: 100%; max-width: 860px;
+    padding: 16px 36px; box-sizing: border-box;
+  }
+  @media(max-width: 768px) {
+    .epub-canvas-container { padding: 4px 6px !important; }
+  }
+  .reader-nav-btn {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 44px; border-radius: 50%; border: none;
+    background: rgba(0,0,0,0.45); color: #fff; cursor: pointer; z-index: 10;
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px);
+    transition: all 0.2s;
+  }
+  .reader-nav-btn:hover { background: rgba(0,0,0,0.7); }
+  @media(max-width: 768px) {
+    .reader-nav-btn { width: 34px; height: 34px; background: rgba(0,0,0,0.3); }
+  }
 
   /* Policy Checklist */
   .policy-checklist {
@@ -575,18 +706,28 @@ const STYLES = `
   .policy-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a1a1aa; }
   .policy-item.valid { color: #4ADE80; font-weight: 600; }
 
-  /* MOBILE NAV */
+  /* MOBILE BOTTOM NAVIGATION BAR */
   .mobile-nav {
     display: none; position: fixed; bottom: 0; left: 0; right: 0;
-    background: #14161b; border-top: 1px solid rgba(255,255,255,0.1); z-index: 50;
+    background: rgba(18, 20, 25, 0.94); backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255,255,255,0.1); z-index: 50;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
   }
-  @media(max-width: 768px) { .mobile-nav { display: flex; justify-content: space-around; height: 64px; align-items: center; } }
+  @media(max-width: 768px) {
+    .mobile-nav { display: flex; justify-content: space-around; height: 60px; align-items: center; }
+  }
   .mobile-nav-item {
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-    color: #a1a1aa; font-size: 10px; font-weight: 600; cursor: pointer; flex: 1;
-    padding: 8px 0; border: none; background: transparent; font-family: inherit; text-decoration: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    color: #a1a1aa; font-size: 10px; font-weight: 600; cursor: pointer; flex: 1; height: 100%;
+    padding: 4px 0; border: none; background: transparent; font-family: inherit; text-decoration: none;
+    transition: all 0.15s;
   }
   .mobile-nav-item.active { color: #ffcd5b; }
+  .mobile-upload-circle {
+    width: 38px; height: 38px; border-radius: 50%; background: #ffcd5b; color: #14161b;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(255,205,91,0.35);
+    margin-bottom: 2px;
+  }
 `;
 
 // ── ROOT APPLICATION ─────────────────────────────────────────────────────────
@@ -864,9 +1005,9 @@ function AppShell() {
                     {unreadCount > 0 && <span className="badge-dot" />}
                   </button>
 
-                  {/* UPLOAD BUTTON */}
+                  {/* UPLOAD BUTTON (Desktop) */}
                   <button
-                    className="btn btn-primary"
+                    className="btn btn-primary topbar-desktop-upload"
                     onClick={() => navigate("/upload")}
                   >
                     <Plus size={16} /> Upload Book
@@ -882,7 +1023,7 @@ function AppShell() {
                     </div>
                     <div className="user-nav-name">{currentUser.name}</div>
                     {isSuperAdmin && <span className="admin-badge">Admin</span>}
-                    <ChevronDown size={14} color="#a1a1aa" />
+                    <ChevronDown size={14} color="#a1a1aa" className="user-nav-chevron" />
                   </div>
                 </>
               ) : (
@@ -1015,15 +1156,30 @@ function AppShell() {
             <Library size={18} />
             <span>Collection</span>
           </Link>
+          <Link
+            to="/upload"
+            className={`mobile-nav-item ${location.pathname === "/upload" ? "active" : ""}`}
+            onClick={(e) => { if (!currentUser) { e.preventDefault(); openAuth("signin"); } }}
+          >
+            <div className="mobile-upload-circle">
+              <Plus size={20} />
+            </div>
+            <span>Upload</span>
+          </Link>
           <Link to="/requests" className={`mobile-nav-item ${location.pathname === "/requests" ? "active" : ""}`}>
             <MessageSquarePlus size={18} />
             <span>Requests</span>
           </Link>
-          {currentUser && (
+          {currentUser ? (
             <Link to="/profile" className={`mobile-nav-item ${location.pathname === "/profile" ? "active" : ""}`}>
               <User size={18} />
               <span>Profile</span>
             </Link>
+          ) : (
+            <button className="mobile-nav-item" onClick={() => openAuth("signin")}>
+              <LogIn size={18} />
+              <span>Sign In</span>
+            </button>
           )}
         </nav>
       </div>
@@ -2303,13 +2459,17 @@ function OnlineReaderPage({ currentUser }) {
     <div className={`reader-shell reader-theme-${theme}`} style={{ height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       {/* READER HEADER */}
       <header className="reader-header" style={{ flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
           <button className="icon-btn" onClick={() => navigate(`/books/${bookId}`)} title="Exit Reader">
             <ArrowLeft size={18} />
           </button>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 800 }}>{streamInfo.title}</div>
-            <div style={{ fontSize: 11, opacity: 0.7 }}>{streamInfo.author || "Reader Mode"}</div>
+          <div style={{ minWidth: 0, overflow: "hidden" }}>
+            <div style={{ fontSize: 13, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {streamInfo.title}
+            </div>
+            <div style={{ fontSize: 10, opacity: 0.7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {streamInfo.author || "Reader Mode"}
+            </div>
           </div>
         </div>
 
@@ -2573,40 +2733,27 @@ function EpubViewer({ readUrl, theme, fontSize, title }) {
         {/* PREV BUTTON */}
         <button
           onClick={prev}
-          style={{
-            position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)",
-            width: 48, height: 48, borderRadius: "50%", border: "none",
-            background: "rgba(0,0,0,0.4)", color: "#fff", cursor: "pointer", zIndex: 10,
-            display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)",
-            transition: "all 0.2s"
-          }}
-          title="Previous Page (Left Arrow)"
+          className="reader-nav-btn"
+          style={{ left: 10 }}
+          title="Previous Page"
         >
-          <ArrowLeft size={22} />
+          <ArrowLeft size={18} />
         </button>
 
         {/* EPUB CONTAINER */}
         <div
           ref={viewerRef}
-          style={{
-            width: "100%", height: "100%", maxWidth: 860,
-            padding: "20px 40px", boxSizing: "border-box"
-          }}
+          className="epub-canvas-container"
         />
 
         {/* NEXT BUTTON */}
         <button
           onClick={next}
-          style={{
-            position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)",
-            width: 48, height: 48, borderRadius: "50%", border: "none",
-            background: "rgba(0,0,0,0.4)", color: "#fff", cursor: "pointer", zIndex: 10,
-            display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)",
-            transition: "all 0.2s"
-          }}
-          title="Next Page (Right Arrow)"
+          className="reader-nav-btn"
+          style={{ right: 10 }}
+          title="Next Page"
         >
-          <ArrowLeft size={22} style={{ transform: "rotate(180deg)" }} />
+          <ArrowLeft size={18} style={{ transform: "rotate(180deg)" }} />
         </button>
 
         {loadingBook && (
