@@ -35,3 +35,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# =========================
+# Test Suite Dependencies
+# =========================
+stockvero-tests/node_modules/
