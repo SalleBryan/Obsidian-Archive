@@ -35,11 +35,11 @@ class RedRisingCdkStack(Stack):
                 email_subject="[Obsidian Archive] Your Verification Code: {####}",
                 email_style=cognito.VerificationEmailStyle.CODE,
                 email_body=(
-                    "Welcome to Obsidian Archive — The Universal Knowledge Vault.\n\n"
+                    "Welcome to Obsidian Archive — The Ultimate Destination for Bookies.\n\n"
                     "Your 6-digit confirmation code is:\n\n"
                     "{####}\n\n"
                     "Enter this code on the platform to verify your account and unlock your personal library vault.\n\n"
-                    "— Obsidian Archive Team | Digisol Group"
+                    "— Obsidian Archive Team | Salle Bryan, Founder"
                 ),
             ),
             standard_attributes=cognito.StandardAttributes(
