@@ -157,6 +157,9 @@ const api = {
   },
   uploadCover: async (file) => {
     const headers = await getAuthHeader();
+    if (!headers.Authorization) {
+      throw new Error("You must be signed in to upload a cover. Please sign in again.");
+    }
     const ext = file.name.split(".").pop().toLowerCase();
     const contentType = file.type || `image/${ext}`;
     const res = await fetch(EP.uploadCover, {
@@ -164,18 +167,26 @@ const api = {
       headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify({ extension: ext, contentType })
     });
-    if (!res.ok) throw new Error("Failed to prepare cover upload");
+    if (!res.ok) {
+      if (res.status === 401) throw new Error("Your session expired. Please sign in again.");
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to prepare cover upload (${res.status})`);
+    }
     const { uploadUrl, coverKey, publicUrl } = await res.json();
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
-      headers: { "Content-Type": contentType },
       body: file
     });
-    if (!uploadRes.ok) throw new Error("Cover upload failed");
+    if (!uploadRes.ok) {
+      throw new Error(`Cover image upload to storage failed (${uploadRes.status}: ${uploadRes.statusText})`);
+    }
     return { coverKey, publicUrl };
   },
   uploadBookFile: async (file) => {
     const headers = await getAuthHeader();
+    if (!headers.Authorization) {
+      throw new Error("You must be signed in to upload a book. Please sign in again.");
+    }
     const ext = file.name.split(".").pop().toLowerCase();
     const contentType = file.type || "application/octet-stream";
     const res = await fetch(EP.uploadBook, {
@@ -188,16 +199,18 @@ const api = {
       })
     });
     if (!res.ok) {
+      if (res.status === 401) throw new Error("Your session expired. Please sign in again.");
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Failed to prepare document upload");
+      throw new Error(err.error || `Failed to prepare document upload (${res.status})`);
     }
     const { uploadUrl, fileKey } = await res.json();
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
-      headers: { "Content-Type": contentType },
       body: file
     });
-    if (!uploadRes.ok) throw new Error("Book file upload failed");
+    if (!uploadRes.ok) {
+      throw new Error(`Document upload to storage failed (${uploadRes.status}: ${uploadRes.statusText})`);
+    }
     return { fileKey, fileType: ext, fileSizeBytes: file.size };
   },
   getRequests: async () => {
