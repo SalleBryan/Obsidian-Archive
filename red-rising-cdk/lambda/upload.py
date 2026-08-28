@@ -96,6 +96,7 @@ def lambda_handler(event, context):
         body = json.loads(raw_body)
 
         ext = body.get('extension', '').lower().lstrip('.')
+        content_type = body.get('contentType') or 'application/octet-stream'
         if not ext:
             return respond(400, {"error": "Missing file extension"})
 
