@@ -74,8 +74,19 @@ const getCatColor = (cat) => CAT_COLORS[cat] || "#ffcd5b";
 
 // ── S3 DIRECT UPLOAD HELPER (CROSS-PLATFORM & MOBILE COMPATIBLE) ──────────────
 function uploadToS3(uploadUrl, file, contentType, onProgress) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
+      // 1. Read file into memory (ArrayBuffer/Blob) to bypass Android content:// stream locking bugs
+      let payload = file;
+      try {
+        if (file.arrayBuffer) {
+          const buffer = await file.arrayBuffer();
+          payload = new Blob([buffer], { type: contentType || file.type || "application/octet-stream" });
+        }
+      } catch (err) {
+        console.warn("ArrayBuffer read failed, falling back to raw File:", err);
+      }
+
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", uploadUrl, true);
 
@@ -108,7 +119,7 @@ function uploadToS3(uploadUrl, file, contentType, onProgress) {
         reject(new Error("Storage upload timed out."));
       };
 
-      xhr.send(file);
+      xhr.send(payload);
     } catch (err) {
       reject(err);
     }
@@ -158,7 +169,8 @@ const api = {
   },
   getBookReadUrl: async (bookId) => {
     const headers = await getAuthHeader();
-    const res = await fetch(`${EP.books}/${bookId}/read`, { headers });
+    const endpoint = headers.Authorization ? `${EP.books}/${bookId}/read-auth` : `${EP.books}/${bookId}/read`;
+    const res = await fetch(endpoint, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "Unable to open reader for this book.");
