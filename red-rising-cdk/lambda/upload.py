@@ -2,6 +2,7 @@ import json
 import boto3
 import os
 import uuid
+import base64
 
 s3 = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
@@ -82,14 +83,16 @@ def lambda_handler(event, context):
 
         # ── 2. UPLOADS (Require Authentication) ──
         if not user_id:
-            return respond(401, {"error": "Unauthorized"})
+            return respond(401, {"error": "Unauthorized. Please sign in to upload."})
 
-        body = json.loads(event.get('body', '{}'))
-        ext = body.get('extension', '')
-        content_type = body.get('contentType', 'application/octet-stream')
+        raw_body = event.get('body') or '{}'
+        if event.get('isBase64Encoded'):
+            raw_body = base64.b64decode(raw_body).decode('utf-8')
+        body = json.loads(raw_body)
 
+        ext = body.get('extension', '').lower().lstrip('.')
         if not ext:
-            return respond(400, {"error": "Missing extension"})
+            return respond(400, {"error": "Missing file extension"})
 
         file_uuid = str(uuid.uuid4())
 
@@ -99,8 +102,7 @@ def lambda_handler(event, context):
                 'put_object',
                 Params={
                     'Bucket': COVERS_BUCKET,
-                    'Key': key,
-                    'ContentType': content_type
+                    'Key': key
                 },
                 ExpiresIn=300
             )
@@ -121,8 +123,7 @@ def lambda_handler(event, context):
                 'put_object',
                 Params={
                     'Bucket': FILES_BUCKET,
-                    'Key': key,
-                    'ContentType': content_type
+                    'Key': key
                 },
                 ExpiresIn=900
             )

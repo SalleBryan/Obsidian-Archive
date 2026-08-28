@@ -33,7 +33,11 @@ ALLOWED_OPERATIONS = [
 
 def lambda_handler(event, context):
     try:
-        body = json.loads(event.get('body', '{}'))
+        raw_body = event.get('body') or '{}'
+        if event.get('isBase64Encoded'):
+            import base64
+            raw_body = base64.b64decode(raw_body).decode('utf-8')
+        body = json.loads(raw_body)
         operation = body.get('operation')
 
         # Flatten nested payload into top-level body
