@@ -72,6 +72,49 @@ const CAT_COLORS = {
 };
 const getCatColor = (cat) => CAT_COLORS[cat] || "#ffcd5b";
 
+// ── S3 DIRECT UPLOAD HELPER (CROSS-PLATFORM & MOBILE COMPATIBLE) ──────────────
+function uploadToS3(uploadUrl, file, contentType, onProgress) {
+  return new Promise((resolve, reject) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", uploadUrl, true);
+
+      if (contentType) {
+        xhr.setRequestHeader("Content-Type", contentType);
+      }
+
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            onProgress(pct);
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error(`Storage upload failed with status ${xhr.status}: ${xhr.statusText || 'Forbidden'}`));
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error("Network error uploading file to storage. Please verify your connection."));
+      };
+
+      xhr.ontimeout = () => {
+        reject(new Error("Storage upload timed out."));
+      };
+
+      xhr.send(file);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 // ── API CLIENT ────────────────────────────────────────────────────────────────
 async function getAuthHeader() {
   try {
@@ -155,12 +198,13 @@ const api = {
     if (!res.ok) throw new Error("Failed to delete book");
     return res.json();
   },
-  uploadCover: async (file) => {
+  uploadCover: async (file, onProgress) => {
     const headers = await getAuthHeader();
     if (!headers.Authorization) {
       throw new Error("You must be signed in to upload a cover. Please sign in again.");
     }
-    const ext = file.name.split(".").pop().toLowerCase();
+    const name = file.name || "cover.jpg";
+    const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "jpg";
     const contentType = file.type || (ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg");
     const res = await fetch(EP.uploadCover, {
       method: "POST",
@@ -173,22 +217,16 @@ const api = {
       throw new Error(err.error || `Failed to prepare cover upload (${res.status})`);
     }
     const { uploadUrl, coverKey, publicUrl } = await res.json();
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": contentType },
-      body: file
-    });
-    if (!uploadRes.ok) {
-      throw new Error(`Cover image upload to storage failed (${uploadRes.status}: ${uploadRes.statusText})`);
-    }
+    await uploadToS3(uploadUrl, file, contentType, onProgress);
     return { coverKey, publicUrl };
   },
-  uploadBookFile: async (file) => {
+  uploadBookFile: async (file, onProgress) => {
     const headers = await getAuthHeader();
     if (!headers.Authorization) {
       throw new Error("You must be signed in to upload a book. Please sign in again.");
     }
-    const ext = file.name.split(".").pop().toLowerCase();
+    const name = file.name || "book.epub";
+    const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "epub";
     const contentType = file.type || "application/octet-stream";
     const res = await fetch(EP.uploadBook, {
       method: "POST",
@@ -205,14 +243,7 @@ const api = {
       throw new Error(err.error || `Failed to prepare document upload (${res.status})`);
     }
     const { uploadUrl, fileKey } = await res.json();
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": contentType },
-      body: file
-    });
-    if (!uploadRes.ok) {
-      throw new Error(`Document upload to storage failed (${uploadRes.status}: ${uploadRes.statusText})`);
-    }
+    await uploadToS3(uploadUrl, file, contentType, onProgress);
     return { fileKey, fileType: ext, fileSizeBytes: file.size };
   },
   getRequests: async () => {
@@ -2401,17 +2432,23 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
 
       // 1. Upload Cover
       if (coverFile) {
-        setProgress(35);
+        setProgress(20);
         setStatusText("Uploading cover image…");
-        const { coverKey } = await api.uploadCover(coverFile);
+        const { coverKey } = await api.uploadCover(coverFile, (pct) => {
+          setProgress(20 + Math.round(pct * 0.25));
+        });
         finalCoverKey = coverKey;
       }
 
       // 2. Upload Document
       if (bookFile) {
-        setProgress(65);
+        const base = coverFile ? 45 : 20;
+        const span = coverFile ? 45 : 70;
+        setProgress(base);
         setStatusText(`Uploading book document (${(bookFile.size / (1024 * 1024)).toFixed(1)} MB)…`);
-        const { fileKey, fileType, fileSizeBytes } = await api.uploadBookFile(bookFile);
+        const { fileKey, fileType, fileSizeBytes } = await api.uploadBookFile(bookFile, (pct) => {
+          setProgress(base + Math.round(pct * (span / 100)));
+        });
         finalFileKey = fileKey;
         finalFileType = fileType;
         finalFileSize = fileSizeBytes;

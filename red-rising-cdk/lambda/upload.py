@@ -108,8 +108,7 @@ def lambda_handler(event, context):
                 'put_object',
                 Params={
                     'Bucket': COVERS_BUCKET,
-                    'Key': key,
-                    'ContentType': content_type
+                    'Key': key
                 },
                 ExpiresIn=300
             )
@@ -130,8 +129,7 @@ def lambda_handler(event, context):
                 'put_object',
                 Params={
                     'Bucket': FILES_BUCKET,
-                    'Key': key,
-                    'ContentType': content_type
+                    'Key': key
                 },
                 ExpiresIn=900
             )
