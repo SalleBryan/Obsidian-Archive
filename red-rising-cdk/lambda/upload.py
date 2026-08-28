@@ -3,8 +3,13 @@ import boto3
 import os
 import uuid
 import base64
+from botocore.config import Config
 
-s3 = boto3.client('s3')
+s3 = boto3.client(
+    's3',
+    region_name=os.environ.get('AWS_REGION', 'us-east-1'),
+    config=Config(signature_version='s3v4')
+)
 dynamodb = boto3.resource('dynamodb')
 
 COVERS_BUCKET = os.environ.get('COVERS_BUCKET')
@@ -102,7 +107,8 @@ def lambda_handler(event, context):
                 'put_object',
                 Params={
                     'Bucket': COVERS_BUCKET,
-                    'Key': key
+                    'Key': key,
+                    'ContentType': content_type
                 },
                 ExpiresIn=300
             )
@@ -123,7 +129,8 @@ def lambda_handler(event, context):
                 'put_object',
                 Params={
                     'Bucket': FILES_BUCKET,
-                    'Key': key
+                    'Key': key,
+                    'ContentType': content_type
                 },
                 ExpiresIn=900
             )

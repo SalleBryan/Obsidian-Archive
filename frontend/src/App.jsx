@@ -161,7 +161,7 @@ const api = {
       throw new Error("You must be signed in to upload a cover. Please sign in again.");
     }
     const ext = file.name.split(".").pop().toLowerCase();
-    const contentType = file.type || `image/${ext}`;
+    const contentType = file.type || (ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg");
     const res = await fetch(EP.uploadCover, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...headers },
@@ -175,6 +175,7 @@ const api = {
     const { uploadUrl, coverKey, publicUrl } = await res.json();
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
+      headers: { "Content-Type": contentType },
       body: file
     });
     if (!uploadRes.ok) {
@@ -206,6 +207,7 @@ const api = {
     const { uploadUrl, fileKey } = await res.json();
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
+      headers: { "Content-Type": contentType },
       body: file
     });
     if (!uploadRes.ok) {
