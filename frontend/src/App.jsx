@@ -159,7 +159,8 @@ const api = {
   },
   getBookById: async (bookId) => {
     const headers = await getAuthHeader();
-    const res = await fetch(`${EP.books}/${bookId}`, { headers });
+    const endpoint = headers.Authorization ? `${EP.books}/${bookId}/auth` : `${EP.books}/${bookId}`;
+    const res = await fetch(endpoint, { headers });
     if (!res.ok) {
       if (res.status === 403) throw new Error("This book is in a private collection.");
       if (res.status === 404) throw new Error("Book not found.");
