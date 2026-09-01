@@ -33,12 +33,24 @@ def respond(status_code, body):
         "body": json.dumps(body, default=str)
     }
 
-# Fields that identify or reveal owner identity — never sent to unauthenticated callers
-_OWNER_FIELDS = {'ownerId', 'uploaderName', 'userEmail'}
+# Internal fields that NO client ever needs: the raw S3 key (internal storage path)
+# and any stored PII. Reading a book always goes through a presigned URL, so the
+# client only needs to know THAT a file exists — exposed as the boolean `hasFile`.
+_INTERNAL_FIELDS = {'fileKey', 'userEmail', 'uploaderName'}
+
+def client_book(book):
+    """Book data safe for an authenticated client (owner/admin). Strips internal
+    fields (S3 key, PII) but keeps ownerId so the UI can show owner-only actions."""
+    b = {k: v for k, v in book.items() if k not in _INTERNAL_FIELDS}
+    b['hasFile'] = bool(book.get('fileKey'))
+    return b
 
 def public_book(book):
-    """Return book data safe for public (unauthenticated) responses."""
-    return {k: v for k, v in book.items() if k not in _OWNER_FIELDS}
+    """Book data safe for an UNauthenticated caller: everything client_book strips,
+    plus ownerId so a stranger can never see who owns a book."""
+    b = client_book(book)
+    b.pop('ownerId', None)
+    return b
 
 def lambda_handler(event, context):
     try:
@@ -62,7 +74,7 @@ def lambda_handler(event, context):
                 IndexName='OwnerIndex',
                 KeyConditionExpression=Key('ownerId').eq(user_id)
             )
-            return respond(200, {"books": resp.get('Items', [])})
+            return respond(200, {"books": [client_book(b) for b in resp.get('Items', [])]})
 
         elif resource == '/books/{bookId}':
             book_id = event.get('pathParameters', {}).get('bookId')
@@ -89,7 +101,7 @@ def lambda_handler(event, context):
                 if not user_id or (book.get('ownerId') != user_id and not is_super_admin):
                     return respond(403, {"error": "This book is in a private collection."})
 
-            return respond(200, book)
+            return respond(200, client_book(book))
 
         elif resource == '/requests':
             if not requests_table:

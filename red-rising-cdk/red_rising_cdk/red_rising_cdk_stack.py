@@ -207,6 +207,22 @@ class RedRisingCdkStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
+        # Reading progress — one row per (userId, bookId) for cross-device "continue reading"
+        progress_table = dynamodb.Table(
+            self, "ProgressTable",
+            table_name="obsidian-progress",
+            partition_key=dynamodb.Attribute(
+                name="userId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="bookId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+
         # ══════════════════════════════════════════════════════════════════════
         # 3. SQS — Main queue + Dead Letter Queue
         # ══════════════════════════════════════════════════════════════════════
@@ -286,6 +302,7 @@ class RedRisingCdkStack(Stack):
             "NOTIFICATIONS_TABLE": notifications_table.table_name,
             "COVERS_BUCKET": covers_bucket.bucket_name,
             "FILES_BUCKET": files_bucket.bucket_name,
+            "PROGRESS_TABLE": progress_table.table_name,
         }
 
         # 5a. Writer: API Gateway POST → SQS
@@ -359,6 +376,18 @@ class RedRisingCdkStack(Stack):
             environment=common_env,
         )
         profiles_table.grant_read_write_data(profile_fn)
+
+        # 5e-2. Progress: cross-device reading progress (direct DynamoDB read/write)
+        progress_fn = _lambda.Function(
+            self, "ProgressFn",
+            function_name="obsidian-progress",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="progress.lambda_handler",
+            code=shared_code,
+            timeout=Duration.seconds(10),
+            environment=common_env,
+        )
+        progress_table.grant_read_write_data(progress_fn)
 
         # 5f. Auth Trigger: Cognito post-confirmation → create profile
         auth_trigger_fn = _lambda.Function(
@@ -478,6 +507,21 @@ class RedRisingCdkStack(Stack):
         profile_res.add_method("PUT", apigw.LambdaIntegration(profile_fn),
                                authorizer=cognito_authorizer,
                                authorization_type=apigw.AuthorizationType.COGNITO)
+
+        # ── /progress (authenticated GET — list) ──
+        progress_res = api.root.add_resource("progress")
+        progress_res.add_method("GET", apigw.LambdaIntegration(progress_fn),
+                                authorizer=cognito_authorizer,
+                                authorization_type=apigw.AuthorizationType.COGNITO)
+
+        # ── /progress/{bookId} (authenticated PUT/DELETE — upsert/remove) ──
+        progress_by_id = progress_res.add_resource("{bookId}")
+        progress_by_id.add_method("PUT", apigw.LambdaIntegration(progress_fn),
+                                  authorizer=cognito_authorizer,
+                                  authorization_type=apigw.AuthorizationType.COGNITO)
+        progress_by_id.add_method("DELETE", apigw.LambdaIntegration(progress_fn),
+                                  authorizer=cognito_authorizer,
+                                  authorization_type=apigw.AuthorizationType.COGNITO)
 
         # ── /notifications (authenticated GET/PUT) ──
         notifications_res = api.root.add_resource("notifications")
