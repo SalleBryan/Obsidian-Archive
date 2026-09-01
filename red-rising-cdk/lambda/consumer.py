@@ -75,7 +75,8 @@ def process_message(body):
             'ownerId': body.get('ownerId', ''),
             'title': body.get('title', 'Untitled'),
             'author': body.get('author', 'Unknown Author'),
-            'category': body.get('category', 'Uncategorized'),
+            'category': body.get('category', 'Uncategorized'),   # kept for GSI backward compat
+            'categories': body.get('categories') or [body.get('category', 'Uncategorized')],
             'description': body.get('description', ''),
             'visibility': body.get('visibility', 'public'),
             'createdAt': now,
@@ -122,7 +123,7 @@ def process_message(body):
         exp_vals = {':upd': now}
         exp_names = {}
         
-        fields = ['title', 'author', 'category', 'description', 'coverKey', 'fileKey', 'fileType', 'fileSizeBytes', 'visibility', 'seriesName', 'seriesOrder']
+        fields = ['title', 'author', 'category', 'categories', 'description', 'coverKey', 'fileKey', 'fileType', 'fileSizeBytes', 'visibility', 'seriesName', 'seriesOrder']
         for field in fields:
             if field in body:
                 val = body[field]
