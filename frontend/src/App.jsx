@@ -3244,6 +3244,14 @@ function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId }) {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  // Detect mobile/tablet so we can hide the side arrow buttons (swipe-only there)
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   // localStorage key scoped to book + user so different users keep independent positions
   const posKey = `obsidian_pos_${bookId}_${userId}`;
 
@@ -3301,7 +3309,9 @@ function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId }) {
         book = ePub(merged.buffer);
         bookRef.current = book;
 
-        rendition = book.renderTo(viewerRef.current, { width: "100%", height: "100%", flow: "paginated", spread: "none" });
+        // spread:"auto" gives a two-page (open-book) layout when the viewport is wide (≥800px),
+        // and a single page on tablets/phones — matching the requested behaviour without extra logic.
+        rendition = book.renderTo(viewerRef.current, { width: "100%", height: "100%", flow: "paginated", spread: "auto" });
         renditionRef.current = rendition;
         applyStyles(rendition, theme, fontSize);
 
@@ -3583,15 +3593,19 @@ function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId }) {
 
       {/* ── READING STAGE ── */}
       <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        <button onClick={prev} className="reader-nav-btn" style={{ left: 8 }} title="Previous page  (← Arrow Key)">
-          <ArrowLeft size={18} />
-        </button>
+        {!isMobile && (
+          <button onClick={prev} className="reader-nav-btn" style={{ left: 8 }} title="Previous page  (← Arrow Key)">
+            <ArrowLeft size={18} />
+          </button>
+        )}
 
         <div ref={viewerRef} className="epub-canvas-container" />
 
-        <button onClick={next} className="reader-nav-btn" style={{ right: 8 }} title="Next page  (→ Arrow Key)">
-          <ArrowLeft size={18} style={{ transform: "rotate(180deg)" }} />
-        </button>
+        {!isMobile && (
+          <button onClick={next} className="reader-nav-btn" style={{ right: 8 }} title="Next page  (→ Arrow Key)">
+            <ArrowLeft size={18} style={{ transform: "rotate(180deg)" }} />
+          </button>
+        )}
 
         {/* Loading overlay with download progress */}
         {loadingBook && (
@@ -3623,6 +3637,7 @@ function PdfViewer({ readUrl, title, theme }) {
   const [loading,     setPdfLoading]  = useState(true);
   const [dlProgress,  setDlProgress]  = useState(0);
   const [twoPage,     setTwoPage]     = useState(false); // desktop spread
+  const [isMobile,    setIsMobile]    = useState(false); // hides side nav buttons
 
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -3632,9 +3647,12 @@ function PdfViewer({ readUrl, title, theme }) {
   const panelBg = theme === "dark" ? "#111317" : theme === "sepia" ? "#f4e7cd" : "#f0f0f0";
   const panelFg = theme === "dark" ? "#e4e4e7" : theme === "sepia" ? "#433422" : "#18181b";
 
-  // Detect desktop (>=1024px) for two-page mode
+  // Track viewport: two-page mode on desktop (≥1024px); hide nav buttons below 768px
   useEffect(() => {
-    const check = () => setTwoPage(window.innerWidth >= 1024);
+    const check = () => {
+      setTwoPage(window.innerWidth >= 1024);
+      setIsMobile(window.innerWidth < 768);
+    };
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -3777,7 +3795,7 @@ function PdfViewer({ readUrl, title, theme }) {
           <button
             onClick={prevPage}
             className="reader-nav-btn"
-            style={{ position: "static", flexShrink: 0, display: window.innerWidth < 768 ? "none" : "flex" }}
+            style={{ position: "static", flexShrink: 0, display: isMobile ? "none" : "flex" }}
             disabled={pageNum <= 1}
             title="Previous page (← Arrow Key)"
           >
@@ -3796,7 +3814,7 @@ function PdfViewer({ readUrl, title, theme }) {
           <button
             onClick={nextPage}
             className="reader-nav-btn"
-            style={{ position: "static", flexShrink: 0, display: window.innerWidth < 768 ? "none" : "flex" }}
+            style={{ position: "static", flexShrink: 0, display: isMobile ? "none" : "flex" }}
             disabled={pageNum >= numPages}
             title="Next page (→ Arrow Key)"
           >
