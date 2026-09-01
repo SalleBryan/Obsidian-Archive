@@ -229,9 +229,10 @@ const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Failed to prepare cover upload (${res.status})`);
     }
-    const { uploadUrl, coverKey, publicUrl } = await res.json();
-    await uploadToS3(uploadUrl, file, contentType, onProgress);
-    return { coverKey, publicUrl };
+    const data = await res.json();
+    // Use the content type the server signed into the presigned URL to guarantee they match
+    await uploadToS3(data.uploadUrl, file, data.contentType || contentType, onProgress);
+    return { coverKey: data.coverKey, publicUrl: data.publicUrl };
   },
   uploadBookFile: async (file, onProgress) => {
     const headers = await getAuthHeader();
@@ -255,9 +256,9 @@ const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Failed to prepare document upload (${res.status})`);
     }
-    const { uploadUrl, fileKey } = await res.json();
-    await uploadToS3(uploadUrl, file, contentType, onProgress);
-    return { fileKey, fileType: ext, fileSizeBytes: file.size };
+    const data = await res.json();
+    await uploadToS3(data.uploadUrl, file, data.contentType || contentType, onProgress);
+    return { fileKey: data.fileKey, fileType: ext, fileSizeBytes: file.size };
   },
   getRequests: async () => {
     const headers = await getAuthHeader();
@@ -1071,6 +1072,7 @@ function AppShell() {
 
   // User State
   const [currentUser, setCurrentUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState("signin");
   const [authForm, setAuthForm] = useState({ email: "", password: "", name: "", code: "" });
@@ -1100,6 +1102,8 @@ function AppShell() {
       });
     } catch {
       setCurrentUser(null);
+    } finally {
+      setAuthChecked(true);
     }
   }, []);
 
@@ -1231,7 +1235,7 @@ function AppShell() {
       <>
         <style>{STYLES}</style>
         <Routes>
-          <Route path="/read/:bookId" element={<OnlineReaderPage currentUser={currentUser} />} />
+          <Route path="/read/:bookId" element={<OnlineReaderPage currentUser={currentUser} authChecked={authChecked} />} />
         </Routes>
       </>
     );
@@ -1481,7 +1485,7 @@ function AppShell() {
             />
             <Route
               path="/books/:bookId"
-              element={<BookDetailPage currentUser={currentUser} onOpenAuth={openAuth} isSuperAdmin={isSuperAdmin} />}
+              element={<BookDetailPage currentUser={currentUser} onOpenAuth={openAuth} isSuperAdmin={isSuperAdmin} authChecked={authChecked} />}
             />
             <Route
               path="/books/:bookId/edit"
@@ -2698,7 +2702,7 @@ function UploadBookPage({ currentUser, onOpenAuth }) {
 }
 
 // ── PAGE 5: BOOK DETAIL (WITH OWNER/SUPER ADMIN PERMISSIONS) ─────────────────
-function BookDetailPage({ currentUser, onOpenAuth, isSuperAdmin }) {
+function BookDetailPage({ currentUser, onOpenAuth, isSuperAdmin, authChecked }) {
   const { bookId } = useParams();
   const navigate = useNavigate();
   const [book, setBook] = useState(null);
@@ -2706,6 +2710,8 @@ function BookDetailPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!authChecked) return;
+
     const fetchBook = async () => {
       setLoading(true);
       try {
@@ -2718,7 +2724,7 @@ function BookDetailPage({ currentUser, onOpenAuth, isSuperAdmin }) {
       }
     };
     fetchBook();
-  }, [bookId]);
+  }, [bookId, authChecked]);
 
   if (loading) {
     return <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>;
@@ -2960,7 +2966,7 @@ function EditBookPage({ currentUser, isSuperAdmin }) {
 }
 
 // ── PAGE 7: IN-BROWSER ONLINE BOOK READER ───────────────────────────────────
-function OnlineReaderPage({ currentUser }) {
+function OnlineReaderPage({ currentUser, authChecked }) {
   const { bookId } = useParams();
   const navigate = useNavigate();
   const [streamInfo, setStreamInfo] = useState(null);
@@ -2973,6 +2979,12 @@ function OnlineReaderPage({ currentUser }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
+    // Wait until the auth session check completes so we know whether to use
+    // the authenticated or public read endpoint. Without this guard, the page
+    // hits the public endpoint before Amplify resolves the token, which causes
+    // private books to return 403 ("Book Unavailable") even for their owners.
+    if (!authChecked) return;
+
     const fetchReadUrl = async () => {
       setLoading(true);
       try {
@@ -2985,7 +2997,7 @@ function OnlineReaderPage({ currentUser }) {
       }
     };
     fetchReadUrl();
-  }, [bookId]);
+  }, [bookId, authChecked]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {

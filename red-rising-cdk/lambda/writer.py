@@ -56,7 +56,6 @@ def lambda_handler(event, context):
 
         is_admin = email in SUPER_ADMIN_EMAILS or email.startswith('bryan')
         body['isAdmin'] = is_admin
-        body['userEmail'] = email
 
         # Inject verified identity context
         if operation in ["CREATE_BOOK", "UPDATE_BOOK", "DELETE_BOOK", "BATCH_DELETE_BOOKS"]:
