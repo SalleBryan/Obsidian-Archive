@@ -33,6 +33,13 @@ def respond(status_code, body):
         "body": json.dumps(body, default=str)
     }
 
+# Fields that identify or reveal owner identity — never sent to unauthenticated callers
+_OWNER_FIELDS = {'ownerId', 'uploaderName', 'userEmail'}
+
+def public_book(book):
+    """Return book data safe for public (unauthenticated) responses."""
+    return {k: v for k, v in book.items() if k not in _OWNER_FIELDS}
+
 def lambda_handler(event, context):
     try:
         resource = event.get('resource', '')
@@ -46,7 +53,7 @@ def lambda_handler(event, context):
                 IndexName='VisibilityIndex',
                 KeyConditionExpression=Key('visibility').eq('public')
             )
-            return respond(200, {"books": resp.get('Items', [])})
+            return respond(200, {"books": [public_book(b) for b in resp.get('Items', [])]})
 
         elif resource == '/books/mine':
             if not user_id:
@@ -66,8 +73,21 @@ def lambda_handler(event, context):
                 return respond(404, {"error": "Book not found"})
 
             if book.get('visibility') == 'private':
+                return respond(403, {"error": "This book is in a private collection."})
+
+            return respond(200, public_book(book))
+
+        elif resource == '/books/{bookId}/auth':
+            book_id = event.get('pathParameters', {}).get('bookId')
+            resp = books_table.get_item(Key={'bookId': book_id})
+            book = resp.get('Item')
+
+            if not book:
+                return respond(404, {"error": "Book not found"})
+
+            if book.get('visibility') == 'private':
                 if not user_id or (book.get('ownerId') != user_id and not is_super_admin):
-                    return respond(403, {"error": "Forbidden"})
+                    return respond(403, {"error": "This book is in a private collection."})
 
             return respond(200, book)
 

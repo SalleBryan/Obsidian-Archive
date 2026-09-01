@@ -46,8 +46,8 @@ def lambda_handler(event, context):
         user_email = (claims.get('email') or '').lower()
         is_super_admin = user_email in SUPER_ADMIN_EMAILS or user_email.startswith('bryan')
 
-        # ── 1. READ BOOK STREAM TOKEN (GET /books/{bookId}/read) ──
-        if resource == '/books/{bookId}/read':
+        # ── 1. READ BOOK STREAM TOKEN (GET /books/{bookId}/read or read-auth) ──
+        if resource in ['/books/{bookId}/read', '/books/{bookId}/read-auth']:
             book_id = event.get('pathParameters', {}).get('bookId')
             if not book_id or not books_table:
                 return respond(400, {"error": "Invalid book ID"})
@@ -83,7 +83,6 @@ def lambda_handler(event, context):
                 "title": book.get('title', 'Book'),
                 "author": book.get('author', ''),
                 "fileType": book.get('fileType', 'pdf'),
-                "fileKey": file_key
             })
 
         # ── 2. UPLOADS (Require Authentication) ──
@@ -108,7 +107,8 @@ def lambda_handler(event, context):
                 'put_object',
                 Params={
                     'Bucket': COVERS_BUCKET,
-                    'Key': key
+                    'Key': key,
+                    'ContentType': content_type,
                 },
                 ExpiresIn=300
             )
@@ -116,7 +116,8 @@ def lambda_handler(event, context):
             return respond(200, {
                 "uploadUrl": url,
                 "coverKey": key,
-                "publicUrl": public_url
+                "publicUrl": public_url,
+                "contentType": content_type,
             })
 
         elif resource == '/upload/book':
@@ -129,13 +130,15 @@ def lambda_handler(event, context):
                 'put_object',
                 Params={
                     'Bucket': FILES_BUCKET,
-                    'Key': key
+                    'Key': key,
+                    'ContentType': content_type,
                 },
                 ExpiresIn=900
             )
             return respond(200, {
                 "uploadUrl": url,
-                "fileKey": key
+                "fileKey": key,
+                "contentType": content_type,
             })
 
         return respond(404, {"error": "Not found"})

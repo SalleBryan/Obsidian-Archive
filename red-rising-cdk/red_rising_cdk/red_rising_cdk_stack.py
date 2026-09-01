@@ -414,7 +414,14 @@ class RedRisingCdkStack(Stack):
 
         # ── /books/{bookId} (public GET, authenticated PUT/DELETE) ──
         book_by_id = books.add_resource("{bookId}")
+        # ── /books/{bookId} (public) ──
         book_by_id.add_method("GET", apigw.LambdaIntegration(reader_fn))
+
+        # ── /books/{bookId}/auth (authenticated details) ──
+        book_by_id_auth = book_by_id.add_resource("auth")
+        book_by_id_auth.add_method("GET", apigw.LambdaIntegration(reader_fn),
+                                   authorizer=cognito_authorizer,
+                                   authorization_type=apigw.AuthorizationType.COGNITO)
         book_by_id.add_method("PUT", apigw.LambdaIntegration(writer_fn),
                               authorizer=cognito_authorizer,
                               authorization_type=apigw.AuthorizationType.COGNITO)
@@ -422,9 +429,15 @@ class RedRisingCdkStack(Stack):
                               authorizer=cognito_authorizer,
                               authorization_type=apigw.AuthorizationType.COGNITO)
 
-        # ── /books/{bookId}/read (conditional — handled in Lambda) ──
+        # ── /books/{bookId}/read (public — no auth) ──
         book_read = book_by_id.add_resource("read")
         book_read.add_method("GET", apigw.LambdaIntegration(upload_fn))
+
+        # ── /books/{bookId}/read-auth (authenticated) ──
+        book_read_auth = book_by_id.add_resource("read-auth")
+        book_read_auth.add_method("GET", apigw.LambdaIntegration(upload_fn),
+                                  authorizer=cognito_authorizer,
+                                  authorization_type=apigw.AuthorizationType.COGNITO)
 
         # ── /upload/cover (authenticated) ──
         upload_res = api.root.add_resource("upload")
