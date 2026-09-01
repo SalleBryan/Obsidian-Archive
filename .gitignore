@@ -35,3 +35,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# =========================
+# Generated documentation (kept local, not versioned)
+# =========================
+*.docx
