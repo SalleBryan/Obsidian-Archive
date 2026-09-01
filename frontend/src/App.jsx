@@ -2981,7 +2981,10 @@ function OnlineReaderPage({ currentUser, authChecked }) {
   const moreRef = useRef(null);
 
   useEffect(() => {
-    // Wait for Amplify auth check before deciding which endpoint to use.
+    // Wait until the auth session check completes so we know whether to use
+    // the authenticated or public read endpoint. Without this guard, the page
+    // hits the public endpoint before Amplify resolves the token, which causes
+    // private books to return 403 ("Book Unavailable") even for their owners.
     if (!authChecked) return;
     const fetchReadUrl = async () => {
       setLoading(true);
