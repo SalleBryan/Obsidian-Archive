@@ -72,6 +72,30 @@ const CAT_COLORS = {
 };
 const getCatColor = (cat) => CAT_COLORS[cat] || "#ffcd5b";
 
+// ── READING PROGRESS INDEX (localStorage) ─────────────────────────────────────
+// Tracks which books a user has opened and their % completion, so the library
+// can show a "Continue Reading" shelf. Per-device (not synced across devices).
+const readingListKey = (userId) => `obsidian_reading_list_${userId || "guest"}`;
+
+function getReadingList(userId) {
+  try { return JSON.parse(localStorage.getItem(readingListKey(userId))) || []; }
+  catch { return []; }
+}
+
+// Insert or update a book's reading progress. `entry` must include bookId; other
+// fields (title, author, fileType, percent) are merged over any existing record.
+function upsertReadingProgress(userId, entry) {
+  if (!entry || !entry.bookId) return;
+  try {
+    const list = getReadingList(userId);
+    const idx = list.findIndex(e => e.bookId === entry.bookId);
+    const merged = { ...(idx >= 0 ? list[idx] : {}), ...entry, updatedAt: Date.now() };
+    if (idx >= 0) list[idx] = merged; else list.push(merged);
+    list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    localStorage.setItem(readingListKey(userId), JSON.stringify(list.slice(0, 60)));
+  } catch {}
+}
+
 // ── S3 DIRECT UPLOAD HELPER (CROSS-PLATFORM & MOBILE COMPATIBLE) ──────────────
 function uploadToS3(uploadUrl, file, contentType, onProgress) {
   return new Promise(async (resolve, reject) => {
@@ -975,11 +999,18 @@ const STYLES = `
   }
 
   .epub-canvas-container {
-    width: 100%; height: 100%; max-width: 860px;
-    padding: 16px 36px; box-sizing: border-box;
+    width: 100%; height: 100%; max-width: 620px;
+    margin: 0 auto; padding: 16px 24px; box-sizing: border-box;
+  }
+  /* Tablet+: allow the two-page (open-book) spread to use more width */
+  @media(min-width: 800px) {
+    .epub-canvas-container { max-width: 1100px; padding: 20px 32px; }
+  }
+  @media(min-width: 1200px) {
+    .epub-canvas-container { max-width: 1360px; padding: 24px 48px; }
   }
   @media(max-width: 768px) {
-    .epub-canvas-container { padding: 4px 6px !important; }
+    .epub-canvas-container { max-width: 100%; padding: 4px 6px !important; }
   }
   .reader-nav-btn {
     position: absolute; top: 50%; transform: translateY(-50%);
@@ -1758,6 +1789,69 @@ function HorizontalShelf({ title, subtitle, onSeeAll, books, onSelectBook, size 
   );
 }
 
+// ── CONTINUE READING SHELF (progress-aware) ──────────────────────────────────
+// Renders books the user has started, each with a % completion bar. `entries`
+// come from the localStorage reading list; `coverMap` supplies covers/category
+// when the full book record is known (owned or public).
+function ContinueReadingShelf({ entries, coverMap, onOpenReader }) {
+  if (!entries || entries.length === 0) return null;
+  return (
+    <div className="shelf-section">
+      <div className="shelf-header">
+        <div>
+          <h2 className="shelf-header-title">Continue Reading</h2>
+          <p className="shelf-header-sub">Pick up right where you left off</p>
+        </div>
+      </div>
+      <div className="shelf-scroll-row">
+        {entries.map((e) => {
+          const full = coverMap?.[e.bookId] || {};
+          const cover = full.coverKey;
+          const cat = full.category || "Uncategorized";
+          const pct = Math.max(0, Math.min(100, e.percent || 0));
+          return (
+            <div key={e.bookId} className="book-shelf-item" onClick={() => onOpenReader(e.bookId)} title={`Resume "${e.title}" — ${pct}% read`}>
+              <div className="shelf-cover-wrapper" style={{ position: "relative" }}>
+                {cover ? (
+                  <img src={`https://obsidian-covers-12345.s3.amazonaws.com/${cover}`} className="shelf-cover-img" alt={e.title} />
+                ) : (
+                  <div className="shelf-cover-placeholder" style={{ background: `linear-gradient(135deg, ${getCatColor(cat)}22, #1f1b17)` }}>
+                    <BookOpen size={28} style={{ color: getCatColor(cat) }} />
+                  </div>
+                )}
+                {/* Resume overlay */}
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)", opacity: 0, transition: "opacity 0.15s" }}
+                  onMouseEnter={(ev) => ev.currentTarget.style.opacity = 1}
+                  onMouseLeave={(ev) => ev.currentTarget.style.opacity = 0}>
+                  <div style={{ background: "#ffcd5b", color: "#14110e", borderRadius: 999, padding: "6px 14px", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", gap: 4 }}>
+                    <BookOpen size={12} /> Resume
+                  </div>
+                </div>
+                {/* Progress bar pinned to bottom of the cover */}
+                <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 5, background: "rgba(0,0,0,0.45)" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: "#ffcd5b" }} />
+                </div>
+                {e.fileType && (
+                  <div style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)", color: "#fff", borderRadius: 4, padding: "2px 6px", fontSize: 9, fontWeight: 800, letterSpacing: "0.05em" }}>
+                    {String(e.fileType).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="shelf-meta">
+                <div className="shelf-title">{e.title}</div>
+                <div className="shelf-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                  <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.author || "Unknown"}</span>
+                  <span style={{ color: "#ffcd5b", fontWeight: 800, flexShrink: 0 }}>{pct}%</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── PAGE 1: PUBLIC LIBRARY (GOOGLE PLAY BOOKS STYLE) ─────────────────────────
 function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }) {
   const navigate = useNavigate();
@@ -2041,13 +2135,25 @@ function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all"); // "all" | "series"
+  const [coverMap, setCoverMap] = useState({});       // bookId -> book (for cover/category join)
+  const [readingEntries, setReadingEntries] = useState([]);
+
+  const userId = currentUser?.userId || "guest";
 
   const loadBooks = async () => {
     if (!currentUser) return;
     setLoading(true);
     try {
-      const data = await api.getMyBooks();
-      setBooks(data);
+      // Fetch the user's own books; also fetch public books so we can show covers
+      // for public titles they're reading but don't own.
+      const [mine, publics] = await Promise.all([
+        api.getMyBooks(),
+        api.getPublicBooks().catch(() => []),
+      ]);
+      setBooks(mine);
+      const map = {};
+      [...publics, ...mine].forEach(b => { if (b?.bookId) map[b.bookId] = b; });
+      setCoverMap(map);
     } catch {
       setBooks([]);
     } finally {
@@ -2059,6 +2165,11 @@ function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }
     if (currentUser) loadBooks();
     else setLoading(false);
   }, [currentUser]);
+
+  // Load the reading list from localStorage whenever the page opens
+  useEffect(() => {
+    setReadingEntries(getReadingList(userId));
+  }, [userId]);
 
   if (!currentUser) {
     return (
@@ -2141,7 +2252,7 @@ function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }
 
       {loading ? (
         <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>
-      ) : filteredBooks.length === 0 ? (
+      ) : filteredBooks.length === 0 && readingEntries.length === 0 ? (
         <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 540, margin: "20px auto" }}>
           <Library size={48} style={{ color: "#ffcd5b", margin: "0 auto 16px", opacity: 0.6 }} />
           <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Your Collection is Empty</h2>
@@ -2177,14 +2288,25 @@ function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }
       ) : (
         /* ALL BOOKS SHELF + GRID */
         <div>
-          {/* Top Continue Reading shelf */}
-          <HorizontalShelf
-            title="Continue Reading"
-            subtitle="Recently accessed from your bookshelf"
-            books={filteredBooks.slice(0, 6)}
-            size="large"
-            onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+          {/* Real Continue Reading shelf — books in progress with % completion */}
+          <ContinueReadingShelf
+            entries={readingEntries}
+            coverMap={coverMap}
+            onOpenReader={(bid) => navigate(`/read/${bid}`)}
           />
+
+          {/* Private Collection — the user's own private books, kept in their own shelf */}
+          {(() => {
+            const privateBooks = filteredBooks.filter(b => b.visibility === "private");
+            return privateBooks.length > 0 ? (
+              <HorizontalShelf
+                title="Private Collection"
+                subtitle={`${privateBooks.length} ${privateBooks.length === 1 ? "book" : "books"} vaulted to your account`}
+                books={privateBooks}
+                onSelectBook={(book) => navigate(`/books/${book.bookId}`)}
+              />
+            ) : null;
+          })()}
 
           {/* Complete Library Grid */}
           <div className="shelf-header" style={{ marginTop: 24, marginBottom: 8 }}>
@@ -3101,7 +3223,7 @@ function OnlineReaderPage({ currentUser, authChecked }) {
       {/* ── READER HEADER ── */}
       <header
         className="reader-header"
-        style={{ flexShrink: 0, background: hdrBg, borderBottom: `1px solid ${hdrBdr}`, color: hdrFg, backdropFilter: "blur(16px)", position: "relative" }}
+        style={{ flexShrink: 0, background: hdrBg, borderBottom: `1px solid ${hdrBdr}`, color: hdrFg, backdropFilter: "blur(16px)", position: "relative", zIndex: 100 }}
       >
         {/* Left: back + title */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
@@ -3205,7 +3327,14 @@ function OnlineReaderPage({ currentUser, authChecked }) {
       {/* ── READER BODY ── */}
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         {isPdf ? (
-          <PdfViewer readUrl={streamInfo.readUrl} title={streamInfo.title} theme={theme} />
+          <PdfViewer
+            readUrl={streamInfo.readUrl}
+            title={streamInfo.title}
+            theme={theme}
+            bookId={bookId}
+            userId={currentUser?.userId || "guest"}
+            author={streamInfo.author}
+          />
         ) : (
           <EpubViewer
             readUrl={streamInfo.readUrl}
@@ -3214,6 +3343,7 @@ function OnlineReaderPage({ currentUser, authChecked }) {
             title={streamInfo.title}
             bookId={bookId}
             userId={currentUser?.userId || "guest"}
+            author={streamInfo.author}
           />
         )}
       </div>
@@ -3221,7 +3351,7 @@ function OnlineReaderPage({ currentUser, authChecked }) {
   );
 }
 
-function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId }) {
+function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, author }) {
   const viewerRef = useRef(null);
   const bookRef = useRef(null);
   const renditionRef = useRef(null);
@@ -3348,9 +3478,14 @@ function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId }) {
             try { localStorage.setItem(posKey, cfi); } catch {}
 
             // Update progress once locations are computed
+            let pct = 0;
             if (book.locations?.length()) {
-              setReadingProgress(Math.round(book.locations.percentageFromCfi(cfi) * 100));
+              pct = Math.round(book.locations.percentageFromCfi(cfi) * 100);
+              setReadingProgress(pct);
             }
+
+            // Record this book in the "Continue Reading" shelf
+            upsertReadingProgress(userId, { bookId, title, author, fileType: "epub", percent: pct });
 
             // Update chapter name
             const nav = navRef.current;
@@ -3391,7 +3526,9 @@ function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId }) {
     try {
       const loc = renditionRef.current.currentLocation();
       if (loc?.start?.cfi && bookRef.current.locations?.length()) {
-        setReadingProgress(Math.round(bookRef.current.locations.percentageFromCfi(loc.start.cfi) * 100));
+        const pct = Math.round(bookRef.current.locations.percentageFromCfi(loc.start.cfi) * 100);
+        setReadingProgress(pct);
+        upsertReadingProgress(userId, { bookId, title, author, fileType: "epub", percent: pct });
       }
     } catch {}
   }, [locationsReady]);
@@ -3627,10 +3764,11 @@ function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId }) {
 }
 
 // ── PDF VIEWER (PDF.js canvas, two-page desktop spread, swipe on mobile) ─────
-function PdfViewer({ readUrl, title, theme }) {
+function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
   const containerRef = useRef(null);
   const pdfRef       = useRef(null);   // loaded PDF document
   const renderTaskRef = useRef(null);  // active render task (cancel on nav)
+  const pageKey = `obsidian_pdfpage_${bookId}_${userId}`;
 
   const [numPages,    setNumPages]    = useState(0);
   const [pageNum,     setPdfPage]     = useState(1);
@@ -3682,7 +3820,13 @@ function PdfViewer({ readUrl, title, theme }) {
         if (!isMounted) return;
         pdfRef.current = pdf;
         setNumPages(pdf.numPages);
-        setPdfPage(1);
+        // Restore the last page the user was on (continue where left off)
+        let startPage = 1;
+        try {
+          const saved = parseInt(localStorage.getItem(pageKey), 10);
+          if (saved >= 1 && saved <= pdf.numPages) startPage = saved;
+        } catch {}
+        setPdfPage(startPage);
       } catch (err) {
         console.error("PDF load error:", err);
       } finally {
@@ -3762,6 +3906,15 @@ function PdfViewer({ readUrl, title, theme }) {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [twoPage, numPages]);
+
+  // ── Persist page + progress for "continue where left off" / library shelf ──
+  useEffect(() => {
+    if (loading || !numPages) return;
+    try { localStorage.setItem(pageKey, String(pageNum)); } catch {}
+    const percent = Math.round((pageNum / numPages) * 100);
+    upsertReadingProgress(userId, { bookId, title, author, fileType: "pdf", percent });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageNum, numPages, loading]);
 
   // ── Swipe navigation (mobile / tablet) ──────────────────────────────────
   const onTouchStart = (e) => {
