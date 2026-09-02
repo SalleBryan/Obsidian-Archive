@@ -290,106 +290,28 @@ class RedRisingCdkStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
+        # Expose resources for ApiStack
+        self.user_pool = user_pool
+        self.user_pool_client = user_pool_client
+        self.user_pool_domain = user_pool_domain
+        self.books_table = books_table
+        self.profiles_table = profiles_table
+        self.requests_table = requests_table
+        self.notifications_table = notifications_table
+        self.progress_table = progress_table
+        self.covers_bucket = covers_bucket
+        self.files_bucket = files_bucket
+        self.queue = queue
+        self.dlq = dlq
+
         # ══════════════════════════════════════════════════════════════════════
-        # 5. LAMBDA FUNCTIONS
+        # 5. AUTH TRIGGER (Cognito Signup Lifecycle)
         # ══════════════════════════════════════════════════════════════════════
         shared_code = _lambda.Code.from_asset("lambda")
-
         common_env = {
-            "BOOKS_TABLE": books_table.table_name,
             "PROFILES_TABLE": profiles_table.table_name,
-            "REQUESTS_TABLE": requests_table.table_name,
-            "NOTIFICATIONS_TABLE": notifications_table.table_name,
-            "COVERS_BUCKET": covers_bucket.bucket_name,
-            "FILES_BUCKET": files_bucket.bucket_name,
-            "PROGRESS_TABLE": progress_table.table_name,
         }
 
-        # 5a. Writer: API Gateway POST → SQS
-        writer_fn = _lambda.Function(
-            self, "WriterFn",
-            function_name="obsidian-writer",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="writer.lambda_handler",
-            code=shared_code,
-            timeout=Duration.seconds(10),
-            environment={**common_env, "QUEUE_URL": queue.queue_url},
-        )
-        queue.grant_send_messages(writer_fn)
-
-        # 5b. Consumer: SQS → DynamoDB + S3 cleanup
-        consumer_fn = _lambda.Function(
-            self, "ConsumerFn",
-            function_name="obsidian-consumer",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="consumer.lambda_handler",
-            code=shared_code,
-            timeout=Duration.seconds(60),
-            environment=common_env,
-        )
-        books_table.grant_read_write_data(consumer_fn)
-        profiles_table.grant_read_write_data(consumer_fn)
-        requests_table.grant_read_write_data(consumer_fn)
-        notifications_table.grant_read_write_data(consumer_fn)
-        covers_bucket.grant_read_write(consumer_fn)
-        files_bucket.grant_read_write(consumer_fn)
-        consumer_fn.add_event_source(
-            lambda_events.SqsEventSource(queue, batch_size=5)
-        )
-
-        # 5c. Reader: API Gateway GET → DynamoDB reads
-        reader_fn = _lambda.Function(
-            self, "ReaderFn",
-            function_name="obsidian-reader",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="reader.lambda_handler",
-            code=shared_code,
-            timeout=Duration.seconds(10),
-            environment=common_env,
-        )
-        books_table.grant_read_data(reader_fn)
-        requests_table.grant_read_data(reader_fn)
-        notifications_table.grant_read_data(reader_fn)
-
-        # 5d. Upload: Presigned URLs for covers, book files, and reader streaming
-        upload_fn = _lambda.Function(
-            self, "UploadFn",
-            function_name="obsidian-upload",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="upload.lambda_handler",
-            code=shared_code,
-            timeout=Duration.seconds(10),
-            environment=common_env,
-        )
-        covers_bucket.grant_read_write(upload_fn)
-        files_bucket.grant_read_write(upload_fn)
-        books_table.grant_read_data(upload_fn)
-
-        # 5e. Profile: User profile CRUD
-        profile_fn = _lambda.Function(
-            self, "ProfileFn",
-            function_name="obsidian-profile",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="profile.lambda_handler",
-            code=shared_code,
-            timeout=Duration.seconds(10),
-            environment=common_env,
-        )
-        profiles_table.grant_read_write_data(profile_fn)
-
-        # 5e-2. Progress: cross-device reading progress (direct DynamoDB read/write)
-        progress_fn = _lambda.Function(
-            self, "ProgressFn",
-            function_name="obsidian-progress",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="progress.lambda_handler",
-            code=shared_code,
-            timeout=Duration.seconds(10),
-            environment=common_env,
-        )
-        progress_table.grant_read_write_data(progress_fn)
-
-        # 5f. Auth Trigger: Cognito post-confirmation → create profile
         auth_trigger_fn = _lambda.Function(
             self, "AuthTriggerFn",
             function_name="obsidian-auth-trigger",
@@ -401,144 +323,14 @@ class RedRisingCdkStack(Stack):
         )
         profiles_table.grant_write_data(auth_trigger_fn)
 
-        # Connect auth trigger to Cognito
         user_pool.add_trigger(
             cognito.UserPoolOperation.POST_CONFIRMATION,
             auth_trigger_fn,
         )
 
         # ══════════════════════════════════════════════════════════════════════
-        # 6. API GATEWAY — with Cognito Authorizer
+        # 6. STACK OUTPUTS
         # ══════════════════════════════════════════════════════════════════════
-        api = apigw.RestApi(
-            self, "ObsidianApi",
-            rest_api_name="obsidian-archive-api",
-            deploy_options=apigw.StageOptions(stage_name="prod"),
-            default_cors_preflight_options=apigw.CorsOptions(
-                allow_origins=apigw.Cors.ALL_ORIGINS,
-                allow_methods=apigw.Cors.ALL_METHODS,
-                allow_headers=["Content-Type", "Authorization"],
-            ),
-        )
-
-        cognito_authorizer = apigw.CognitoUserPoolsAuthorizer(
-            self, "CognitoAuthorizer",
-            cognito_user_pools=[user_pool],
-            authorizer_name="ObsidianCognitoAuth",
-        )
-
-
-        # ── /books (public GET, authenticated POST) ──
-        books = api.root.add_resource("books")
-        books.add_method("GET", apigw.LambdaIntegration(reader_fn))
-        books.add_method("POST", apigw.LambdaIntegration(writer_fn),
-                         authorizer=cognito_authorizer,
-                         authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /books/mine (authenticated GET) ──
-        books_mine = books.add_resource("mine")
-        books_mine.add_method("GET", apigw.LambdaIntegration(reader_fn),
-                              authorizer=cognito_authorizer,
-                              authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /books/{bookId} (public GET, authenticated PUT/DELETE) ──
-        book_by_id = books.add_resource("{bookId}")
-        # ── /books/{bookId} (public) ──
-        book_by_id.add_method("GET", apigw.LambdaIntegration(reader_fn))
-
-        # ── /books/{bookId}/auth (authenticated details) ──
-        book_by_id_auth = book_by_id.add_resource("auth")
-        book_by_id_auth.add_method("GET", apigw.LambdaIntegration(reader_fn),
-                                   authorizer=cognito_authorizer,
-                                   authorization_type=apigw.AuthorizationType.COGNITO)
-        book_by_id.add_method("PUT", apigw.LambdaIntegration(writer_fn),
-                              authorizer=cognito_authorizer,
-                              authorization_type=apigw.AuthorizationType.COGNITO)
-        book_by_id.add_method("DELETE", apigw.LambdaIntegration(writer_fn),
-                              authorizer=cognito_authorizer,
-                              authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /books/{bookId}/read (public — no auth) ──
-        book_read = book_by_id.add_resource("read")
-        book_read.add_method("GET", apigw.LambdaIntegration(upload_fn))
-
-        # ── /books/{bookId}/read-auth (authenticated) ──
-        book_read_auth = book_by_id.add_resource("read-auth")
-        book_read_auth.add_method("GET", apigw.LambdaIntegration(upload_fn),
-                                  authorizer=cognito_authorizer,
-                                  authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /upload/cover (authenticated) ──
-        upload_res = api.root.add_resource("upload")
-        upload_cover = upload_res.add_resource("cover")
-        upload_cover.add_method("POST", apigw.LambdaIntegration(upload_fn),
-                                authorizer=cognito_authorizer,
-                                authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /upload/book (authenticated) ──
-        upload_book = upload_res.add_resource("book")
-        upload_book.add_method("POST", apigw.LambdaIntegration(upload_fn),
-                               authorizer=cognito_authorizer,
-                               authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /requests (authenticated GET/POST) ──
-        requests_res = api.root.add_resource("requests")
-        requests_res.add_method("GET", apigw.LambdaIntegration(reader_fn),
-                                authorizer=cognito_authorizer,
-                                authorization_type=apigw.AuthorizationType.COGNITO)
-        requests_res.add_method("POST", apigw.LambdaIntegration(writer_fn),
-                                authorizer=cognito_authorizer,
-                                authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /requests/{requestId} (authenticated PUT/DELETE) ──
-        request_by_id = requests_res.add_resource("{requestId}")
-        request_by_id.add_method("PUT", apigw.LambdaIntegration(writer_fn),
-                                 authorizer=cognito_authorizer,
-                                 authorization_type=apigw.AuthorizationType.COGNITO)
-        request_by_id.add_method("DELETE", apigw.LambdaIntegration(writer_fn),
-                                 authorizer=cognito_authorizer,
-                                 authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /profile (authenticated GET/PUT) ──
-        profile_res = api.root.add_resource("profile")
-        profile_res.add_method("GET", apigw.LambdaIntegration(profile_fn),
-                               authorizer=cognito_authorizer,
-                               authorization_type=apigw.AuthorizationType.COGNITO)
-        profile_res.add_method("PUT", apigw.LambdaIntegration(profile_fn),
-                               authorizer=cognito_authorizer,
-                               authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /progress (authenticated GET — list) ──
-        progress_res = api.root.add_resource("progress")
-        progress_res.add_method("GET", apigw.LambdaIntegration(progress_fn),
-                                authorizer=cognito_authorizer,
-                                authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /progress/{bookId} (authenticated PUT/DELETE — upsert/remove) ──
-        progress_by_id = progress_res.add_resource("{bookId}")
-        progress_by_id.add_method("PUT", apigw.LambdaIntegration(progress_fn),
-                                  authorizer=cognito_authorizer,
-                                  authorization_type=apigw.AuthorizationType.COGNITO)
-        progress_by_id.add_method("DELETE", apigw.LambdaIntegration(progress_fn),
-                                  authorizer=cognito_authorizer,
-                                  authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ── /notifications (authenticated GET/PUT) ──
-        notifications_res = api.root.add_resource("notifications")
-        notifications_res.add_method("GET", apigw.LambdaIntegration(reader_fn),
-                                     authorizer=cognito_authorizer,
-                                     authorization_type=apigw.AuthorizationType.COGNITO)
-        notifications_res.add_method("PUT", apigw.LambdaIntegration(writer_fn),
-                                     authorizer=cognito_authorizer,
-                                     authorization_type=apigw.AuthorizationType.COGNITO)
-
-        # ══════════════════════════════════════════════════════════════════════
-        # 7. STACK OUTPUTS
-        # ══════════════════════════════════════════════════════════════════════
-        CfnOutput(self, "ApiUrl",
-            value=api.url,
-            description="API Gateway base URL")
-
         CfnOutput(self, "UserPoolId",
             value=user_pool.user_pool_id,
             description="Cognito User Pool ID — needed in frontend Amplify config")

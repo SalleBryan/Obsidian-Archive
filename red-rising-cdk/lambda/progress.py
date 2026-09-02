@@ -2,28 +2,12 @@ import json
 import boto3
 import os
 import time
-from decimal import Decimal
 from boto3.dynamodb.conditions import Key
+from utils import respond, get_auth_context, parse_body
 
 dynamodb = boto3.resource('dynamodb')
 PROGRESS_TABLE = os.environ.get('PROGRESS_TABLE')
 progress_table = dynamodb.Table(PROGRESS_TABLE) if PROGRESS_TABLE else None
-
-CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Content-Type": "application/json"
-}
-
-
-def respond(status_code, body):
-    return {
-        "statusCode": status_code,
-        "headers": CORS_HEADERS,
-        "body": json.dumps(body, default=str)
-    }
-
 
 def lambda_handler(event, context):
     """Cross-device reading progress. One row per (userId, bookId).
@@ -32,8 +16,8 @@ def lambda_handler(event, context):
     PUT  /progress/{bookId}     → upsert progress for one book
     """
     try:
-        claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
-        user_id = claims.get('sub')
+        auth = get_auth_context(event)
+        user_id = auth['userId']
         if not user_id:
             return respond(401, {"error": "Unauthorized"})
         if not progress_table:
@@ -55,7 +39,7 @@ def lambda_handler(event, context):
         if method == 'PUT':
             if not book_id:
                 return respond(400, {"error": "Missing bookId"})
-            body = json.loads(event.get('body') or '{}')
+            body = parse_body(event)
 
             # Clamp percent to 0..100
             try:
