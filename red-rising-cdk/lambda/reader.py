@@ -101,7 +101,11 @@ def lambda_handler(event, context):
                 if not user_id or (book.get('ownerId') != user_id and not is_super_admin):
                     return respond(403, {"error": "This book is in a private collection."})
 
-            return respond(200, client_book(book))
+            # Only expose ownerId to the actual owner or super admins
+            if user_id == book.get('ownerId') or is_super_admin:
+                return respond(200, client_book(book))
+            else:
+                return respond(200, public_book(book))
 
         elif resource == '/requests':
             if not requests_table:
