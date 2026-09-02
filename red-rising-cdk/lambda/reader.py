@@ -2,6 +2,7 @@ import json
 import boto3
 import os
 from boto3.dynamodb.conditions import Key
+from utils import respond, get_auth_context
 
 dynamodb = boto3.resource('dynamodb')
 
@@ -12,26 +13,6 @@ NOTIFICATIONS_TABLE = os.environ.get('NOTIFICATIONS_TABLE')
 books_table = dynamodb.Table(BOOKS_TABLE) if BOOKS_TABLE else None
 requests_table = dynamodb.Table(REQUESTS_TABLE) if REQUESTS_TABLE else None
 notifications_table = dynamodb.Table(NOTIFICATIONS_TABLE) if NOTIFICATIONS_TABLE else None
-
-SUPER_ADMIN_EMAILS = [
-    os.environ.get('SUPER_ADMIN_EMAIL', '').lower(),
-    'bryansalle17@gmail.com',
-    'bryan@digisol.com'
-]
-
-CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Content-Type": "application/json"
-}
-
-def respond(status_code, body):
-    return {
-        "statusCode": status_code,
-        "headers": CORS_HEADERS,
-        "body": json.dumps(body, default=str)
-    }
 
 # Internal fields that NO client ever needs: the raw S3 key (internal storage path)
 # and any stored PII. Reading a book always goes through a presigned URL, so the
@@ -55,10 +36,9 @@ def public_book(book):
 def lambda_handler(event, context):
     try:
         resource = event.get('resource', '')
-        claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
-        user_id = claims.get('sub')
-        user_email = (claims.get('email') or '').lower()
-        is_super_admin = user_email in SUPER_ADMIN_EMAILS or user_email.startswith('bryan')
+        auth = get_auth_context(event)
+        user_id = auth['userId']
+        is_super_admin = auth['isSuperAdmin']
 
         if resource == '/books':
             resp = books_table.query(

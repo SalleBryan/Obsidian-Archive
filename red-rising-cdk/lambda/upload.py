@@ -2,8 +2,8 @@ import json
 import boto3
 import os
 import uuid
-import base64
 from botocore.config import Config
+from utils import respond, get_auth_context, parse_body
 
 s3 = boto3.client(
     's3',
@@ -18,33 +18,12 @@ BOOKS_TABLE = os.environ.get('BOOKS_TABLE')
 
 books_table = dynamodb.Table(BOOKS_TABLE) if BOOKS_TABLE else None
 
-SUPER_ADMIN_EMAILS = [
-    os.environ.get('SUPER_ADMIN_EMAIL', '').lower(),
-    'bryansalle17@gmail.com',
-    'bryan@digisol.com'
-]
-
-CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Content-Type": "application/json"
-}
-
-def respond(status_code, body):
-    return {
-        "statusCode": status_code,
-        "headers": CORS_HEADERS,
-        "body": json.dumps(body, default=str)
-    }
-
 def lambda_handler(event, context):
     try:
         resource = event.get('resource', '')
-        claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
-        user_id = claims.get('sub')
-        user_email = (claims.get('email') or '').lower()
-        is_super_admin = user_email in SUPER_ADMIN_EMAILS or user_email.startswith('bryan')
+        auth = get_auth_context(event)
+        user_id = auth['userId']
+        is_super_admin = auth['isSuperAdmin']
 
         # ── 1. READ BOOK STREAM TOKEN (GET /books/{bookId}/read or read-auth) ──
         if resource in ['/books/{bookId}/read', '/books/{bookId}/read-auth']:
@@ -89,10 +68,7 @@ def lambda_handler(event, context):
         if not user_id:
             return respond(401, {"error": "Unauthorized. Please sign in to upload."})
 
-        raw_body = event.get('body') or '{}'
-        if event.get('isBase64Encoded'):
-            raw_body = base64.b64decode(raw_body).decode('utf-8')
-        body = json.loads(raw_body)
+        body = parse_body(event)
 
         ext = body.get('extension', '').lower().lstrip('.')
         content_type = body.get('contentType') or 'application/octet-stream'

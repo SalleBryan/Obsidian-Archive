@@ -1,6 +1,6 @@
 
 // ── API CONFIGURATION ─────────────────────────────────────────────────────────
-export const API_BASE = "https://drcuyr2lz3.execute-api.us-east-1.amazonaws.com/prod";
+export const API_BASE = "https://0aw1ajoft6.execute-api.us-east-1.amazonaws.com/prod";
 export const EP = {
   books: `${API_BASE}/books`,
   booksMine: `${API_BASE}/books/mine`,

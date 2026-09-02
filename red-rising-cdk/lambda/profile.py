@@ -1,29 +1,16 @@
 import json
 import boto3
 import os
+from utils import respond, get_auth_context, parse_body
 
 dynamodb = boto3.resource('dynamodb')
 PROFILES_TABLE = os.environ.get('PROFILES_TABLE')
 profiles_table = dynamodb.Table(PROFILES_TABLE)
 
-CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Content-Type": "application/json"
-}
-
-def respond(status_code, body):
-    return {
-        "statusCode": status_code,
-        "headers": CORS_HEADERS,
-        "body": json.dumps(body, default=str)
-    }
-
 def lambda_handler(event, context):
     try:
-        claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
-        user_id = claims.get('sub')
+        auth = get_auth_context(event)
+        user_id = auth['userId']
         
         if not user_id:
             return respond(401, {"error": "Unauthorized"})
@@ -38,7 +25,7 @@ def lambda_handler(event, context):
             return respond(200, profile)
             
         elif method == 'PUT':
-            body = json.loads(event.get('body', '{}'))
+            body = parse_body(event)
             update_exp = []
             exp_names = {}
             exp_vals = {}
