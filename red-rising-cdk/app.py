@@ -1,11 +1,11 @@
 import aws_cdk as cdk
-from red_rising_cdk.red_rising_cdk_stack import RedRisingCdkStack
+from red_rising_cdk.data_stack import ObsidianDataStack
 from red_rising_cdk.api_stack import ObsidianApiStack
 
 app = cdk.App()
 env = cdk.Environment(account="340752829171", region="us-east-1")
 
-data_stack = RedRisingCdkStack(app, "RedRisingCdkStack", env=env)
+data_stack = ObsidianDataStack(app, "RedRisingCdkStack", env=env)
 
 ObsidianApiStack(
     app,
