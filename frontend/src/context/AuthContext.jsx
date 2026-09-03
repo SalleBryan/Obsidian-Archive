@@ -48,15 +48,21 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, [checkAuth]);
 
-  // After a Google SSO redirect, Amplify silently exchanges the auth code for
-  // tokens in the background. Hub fires "signedIn" when that completes — we
-  // use it to update React state so the UI reflects the authenticated user.
+  // After a Google SSO redirect, Amplify exchanges the auth code for tokens in
+  // the background and fires "signInWithRedirect" (NOT "signedIn" — that event
+  // is only for direct signIn() calls). We listen for both so React state
+  // updates and the UI reflects the authenticated user. "signInWithRedirect_failure"
+  // is also handled so a broken OAuth exchange surfaces an error instead of
+  // failing silently.
   useEffect(() => {
     const unsubscribe = Hub.listen("auth", ({ payload }) => {
-      if (payload.event === "signedIn") {
+      if (payload.event === "signedIn" || payload.event === "signInWithRedirect") {
         checkAuth();
         setAuthModalOpen(false);
         setAuthError("");
+      } else if (payload.event === "signInWithRedirect_failure") {
+        setAuthError("Google sign-in failed. Please try again.");
+        setAuthLoading(false);
       }
     });
     return unsubscribe;
