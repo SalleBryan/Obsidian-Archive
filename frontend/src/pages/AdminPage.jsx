@@ -1,12 +1,31 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Users, BookOpen, FileQuestion, ShieldAlert, Trash2, Ban, CheckCircle2, ArrowLeft, Pencil, Plus, X, Eye, EyeOff } from "lucide-react";
+import { Loader2, Users, BookOpen, FileQuestion, ShieldAlert, Trash2, Ban, CheckCircle2, ArrowLeft, Pencil, Plus, X, Eye, EyeOff, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 
 // ── ADMIN PANEL — standalone page, separate from user-facing shell ────────────
 
 const TABS = ["Dashboard", "Users", "Books", "Requests"];
+const PAGE_SIZE = 8;
+
+const ADMIN_STYLES = `
+  .admin-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .admin-thead, .admin-row { display:grid; align-items:center; gap:12px; }
+  .admin-thead { padding:10px 16px; border-bottom:1px solid rgba(255,255,255,0.08); font-size:10px; font-weight:800; color:#71717a; text-transform:uppercase; letter-spacing:0.06em; }
+  .admin-row { padding:14px 16px; border-bottom:1px solid rgba(255,255,255,0.05); }
+  .admin-row:last-child { border-bottom:none; }
+  .admin-row-actions { display:flex; gap:6px; justify-content:flex-end; }
+  .admin-header-email { font-size:12px; color:#71717a; }
+  @media (max-width: 720px) {
+    .admin-header-email { display:none; }
+    .admin-thead { display:none; }
+    .admin-row { grid-template-columns: 1fr !important; gap:10px; }
+    .admin-row-actions { justify-content:flex-start; }
+    .admin-row-actions button { flex:1; justify-content:center; }
+    .admin-toolbar { flex-direction:column; align-items:stretch; }
+  }
+`;
 
 function StatCard({ label, value, icon: Icon, accent = "#ffcd5b" }) {
   return (
@@ -29,7 +48,7 @@ function Badge({ children, color = "#71717a" }) {
   return (
     <span style={{
       display: "inline-block", padding: "2px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700,
-      color, background: `${color}18`, border: `1px solid ${color}40`
+      color, background: `${color}18`, border: `1px solid ${color}40`, whiteSpace: "nowrap"
     }}>{children}</span>
   );
 }
@@ -39,6 +58,59 @@ const btnStyle = (color) => ({
   borderRadius: 8, border: `1px solid ${color}4d`, background: "transparent", color,
   cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit"
 });
+
+// ── Search + pagination, shared across all three tabs ──────────────────────
+function useTableControls(items, searchFields, pageSize = PAGE_SIZE) {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return items;
+    const q = search.toLowerCase();
+    return items.filter(item => searchFields.some(f => (item[f] || "").toString().toLowerCase().includes(q)));
+  }, [items, search, searchFields]);
+
+  useEffect(() => { setPage(1); }, [search, items.length]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  return { search, setSearch, page, setPage, totalPages, paged, filteredCount: filtered.length };
+}
+
+function SearchBar({ value, onChange, placeholder }) {
+  return (
+    <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+      <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a" }} />
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{ width: "100%", padding: "8px 12px 8px 34px", borderRadius: 8, background: "#0f1115", border: "1px solid rgba(255,255,255,0.1)", color: "#e4e4e7", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }}
+      />
+    </div>
+  );
+}
+
+function Pagination({ page, totalPages, onChange, totalItems, pageSize }) {
+  if (totalPages <= 1) return null;
+  const from = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, totalItems);
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, flexWrap: "wrap", gap: 10 }}>
+      <span style={{ fontSize: 12, color: "#71717a" }}>{from}–{to} of {totalItems}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={() => onChange(Math.max(1, page - 1))} disabled={page === 1} style={{ ...btnStyle("#a1a1aa"), opacity: page === 1 ? 0.4 : 1 }}>
+          <ChevronLeft size={13} /> Prev
+        </button>
+        <span style={{ fontSize: 12, color: "#a1a1aa", fontWeight: 600 }}>Page {page} of {totalPages}</span>
+        <button onClick={() => onChange(Math.min(totalPages, page + 1))} disabled={page === totalPages} style={{ ...btnStyle("#a1a1aa"), opacity: page === totalPages ? 0.4 : 1 }}>
+          Next <ChevronRight size={13} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ── Generic create/edit modal, config-driven so Users/Books/Requests share it ──
 function FormModal({ title, fields, initial, onSubmit, onClose }) {
@@ -61,8 +133,8 @@ function FormModal({ title, fields, initial, onSubmit, onClose }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }} onClick={onClose}>
-      <div style={{ background: "#16181d", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 24, width: 420, maxWidth: "90vw" }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 }} onClick={onClose}>
+      <div style={{ background: "#16181d", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <h3 style={{ fontSize: 17, fontWeight: 800, color: "#ffcd5b" }}>{title}</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#71717a", cursor: "pointer" }}><X size={18} /></button>
@@ -117,8 +189,8 @@ function AdminSignIn() {
   };
 
   return (
-    <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f1115" }}>
-      <div style={{ width: 380, maxWidth: "90vw", background: "#16181d", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 32 }}>
+    <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f1115", padding: 16 }}>
+      <div style={{ width: 380, maxWidth: "100%", background: "#16181d", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 32 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <ShieldAlert size={22} color="#ffcd5b" />
           <h2 style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>Admin Access</h2>
@@ -190,6 +262,8 @@ function DashboardTab({ stats, loading }) {
 }
 
 // ── USERS TAB ─────────────────────────────────────────────────────────────────
+const USER_COLS = "1fr 100px 110px 150px";
+
 function UsersTab() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -203,6 +277,8 @@ function UsersTab() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const { search, setSearch, page, setPage, totalPages, paged, filteredCount } = useTableControls(users, ["name", "email"]);
 
   const toggle = async (u) => {
     if (!window.confirm(`${u.enabled ? "Disable" : "Enable"} account for ${u.email}?`)) return;
@@ -228,23 +304,25 @@ function UsersTab() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <p style={{ fontSize: 13, color: "#71717a" }}>{users.length} user{users.length !== 1 ? "s" : ""} registered</p>
-        <button className="btn btn-primary" onClick={() => setModal("create")} style={{ padding: "7px 14px", fontSize: 12 }}><Plus size={14} /> Add User</button>
+      <div className="admin-toolbar">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search by name or email…" />
+        <button className="btn btn-primary" onClick={() => setModal("create")} style={{ padding: "7px 14px", fontSize: 12, whiteSpace: "nowrap" }}><Plus size={14} /> Add User</button>
       </div>
+
       <div style={{ background: "#16181d", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, overflow: "hidden" }}>
-        {users.map((u, i) => (
-          <div key={u.userId} style={{
-            display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 12, alignItems: "center",
-            padding: "14px 16px", borderBottom: i < users.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none"
-          }}>
+        <div className="admin-thead" style={{ gridTemplateColumns: USER_COLS }}>
+          <span>Name / Email</span><span>Status</span><span>Joined</span><span style={{ textAlign: "right" }}>Actions</span>
+        </div>
+        {paged.length === 0 && <div style={{ padding: 24, textAlign: "center", color: "#71717a", fontSize: 13 }}>No users match your search.</div>}
+        {paged.map((u) => (
+          <div key={u.userId} className="admin-row" style={{ gridTemplateColumns: USER_COLS }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#e4e4e7" }}>{u.name || "—"}</div>
               <div style={{ fontSize: 12, color: "#71717a" }}>{u.email}</div>
             </div>
             <Badge color={u.enabled ? "#4ade80" : "#f87171"}>{u.enabled ? "Active" : "Disabled"}</Badge>
             <div style={{ fontSize: 12, color: "#71717a", whiteSpace: "nowrap" }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div className="admin-row-actions">
               <button onClick={() => setModal(u)} style={btnStyle("#60a5fa")}><Pencil size={12} /></button>
               <button onClick={() => toggle(u)} disabled={busy === u.userId} style={btnStyle(u.enabled ? "#f87171" : "#4ade80")}>
                 {busy === u.userId ? <Loader2 size={12} className="spin" /> : u.enabled ? <Ban size={12} /> : <CheckCircle2 size={12} />}
@@ -254,6 +332,8 @@ function UsersTab() {
           </div>
         ))}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} totalItems={filteredCount} pageSize={PAGE_SIZE} />
 
       {modal === "create" && (
         <FormModal
@@ -284,6 +364,8 @@ function UsersTab() {
 }
 
 // ── BOOKS TAB ─────────────────────────────────────────────────────────────────
+const BOOK_COLS = "1fr 90px 70px 100px";
+
 function BooksTab() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -297,6 +379,8 @@ function BooksTab() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const { search, setSearch, page, setPage, totalPages, paged, filteredCount } = useTableControls(books, ["title", "author"]);
 
   const del = async (b) => {
     if (!window.confirm(`Permanently delete "${b.title}"? This cannot be undone.`)) return;
@@ -320,23 +404,25 @@ function BooksTab() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <p style={{ fontSize: 13, color: "#71717a" }}>{books.length} book{books.length !== 1 ? "s" : ""} in the archive</p>
-        <button className="btn btn-primary" onClick={() => setModal("create")} style={{ padding: "7px 14px", fontSize: 12 }}><Plus size={14} /> Add Book</button>
+      <div className="admin-toolbar">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search by title or author…" />
+        <button className="btn btn-primary" onClick={() => setModal("create")} style={{ padding: "7px 14px", fontSize: 12, whiteSpace: "nowrap" }}><Plus size={14} /> Add Book</button>
       </div>
+
       <div style={{ background: "#16181d", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, overflow: "hidden" }}>
-        {books.map((b, i) => (
-          <div key={b.bookId} style={{
-            display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 12, alignItems: "center",
-            padding: "14px 16px", borderBottom: i < books.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none"
-          }}>
+        <div className="admin-thead" style={{ gridTemplateColumns: BOOK_COLS }}>
+          <span>Title / Author</span><span>Visibility</span><span>Type</span><span style={{ textAlign: "right" }}>Actions</span>
+        </div>
+        {paged.length === 0 && <div style={{ padding: 24, textAlign: "center", color: "#71717a", fontSize: 13 }}>No books match your search.</div>}
+        {paged.map((b) => (
+          <div key={b.bookId} className="admin-row" style={{ gridTemplateColumns: BOOK_COLS }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#e4e4e7" }}>{b.title}</div>
               <div style={{ fontSize: 12, color: "#71717a" }}>by {b.author || "Unknown"}</div>
             </div>
             <Badge color={b.visibility === "public" ? "#60a5fa" : "#a78bfa"}>{b.visibility === "public" ? "Public" : "Private"}</Badge>
             <Badge color="#ffcd5b">{(b.fileType || "—").toUpperCase()}</Badge>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div className="admin-row-actions">
               <button onClick={() => setModal(b)} style={btnStyle("#60a5fa")}><Pencil size={12} /></button>
               <button onClick={() => del(b)} disabled={busy === b.bookId} style={btnStyle("#f87171")}>
                 {busy === b.bookId ? <Loader2 size={12} className="spin" /> : <Trash2 size={12} />}
@@ -345,6 +431,8 @@ function BooksTab() {
           </div>
         ))}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} totalItems={filteredCount} pageSize={PAGE_SIZE} />
 
       {modal === "create" && (
         <FormModal
@@ -369,6 +457,8 @@ function BooksTab() {
 }
 
 // ── REQUESTS TAB ─────────────────────────────────────────────────────────────
+const REQUEST_COLS = "1fr 100px 110px 100px";
+
 function RequestsTab() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -382,6 +472,8 @@ function RequestsTab() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const { search, setSearch, page, setPage, totalPages, paged, filteredCount } = useTableControls(requests, ["title", "requesterName", "author"]);
 
   const del = async (r) => {
     if (!window.confirm(`Delete request "${r.title}"?`)) return;
@@ -404,23 +496,25 @@ function RequestsTab() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <p style={{ fontSize: 13, color: "#71717a" }}>{requests.length} request{requests.length !== 1 ? "s" : ""}</p>
-        <button className="btn btn-primary" onClick={() => setModal("create")} style={{ padding: "7px 14px", fontSize: 12 }}><Plus size={14} /> Add Request</button>
+      <div className="admin-toolbar">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search by title or requester…" />
+        <button className="btn btn-primary" onClick={() => setModal("create")} style={{ padding: "7px 14px", fontSize: 12, whiteSpace: "nowrap" }}><Plus size={14} /> Add Request</button>
       </div>
+
       <div style={{ background: "#16181d", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, overflow: "hidden" }}>
-        {requests.map((r, i) => (
-          <div key={r.requestId} style={{
-            display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 12, alignItems: "center",
-            padding: "14px 16px", borderBottom: i < requests.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none"
-          }}>
+        <div className="admin-thead" style={{ gridTemplateColumns: REQUEST_COLS }}>
+          <span>Title / Requester</span><span>Status</span><span>Date</span><span style={{ textAlign: "right" }}>Actions</span>
+        </div>
+        {paged.length === 0 && <div style={{ padding: 24, textAlign: "center", color: "#71717a", fontSize: 13 }}>No requests match your search.</div>}
+        {paged.map((r) => (
+          <div key={r.requestId} className="admin-row" style={{ gridTemplateColumns: REQUEST_COLS }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#e4e4e7" }}>{r.title}</div>
               <div style={{ fontSize: 12, color: "#71717a" }}>Requested by {r.requesterName || "Unknown"}</div>
             </div>
             <Badge color={r.status === "fulfilled" ? "#4ade80" : "#ffcd5b"}>{r.status === "fulfilled" ? "Fulfilled" : "Open"}</Badge>
             <div style={{ fontSize: 12, color: "#71717a", whiteSpace: "nowrap" }}>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—"}</div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div className="admin-row-actions">
               <button onClick={() => setModal(r)} style={btnStyle("#60a5fa")}><Pencil size={12} /></button>
               <button onClick={() => del(r)} disabled={busy === r.requestId} style={btnStyle("#f87171")}>
                 {busy === r.requestId ? <Loader2 size={12} className="spin" /> : <Trash2 size={12} />}
@@ -429,6 +523,8 @@ function RequestsTab() {
           </div>
         ))}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} totalItems={filteredCount} pageSize={PAGE_SIZE} />
 
       {modal === "create" && (
         <FormModal
@@ -480,8 +576,10 @@ export function AdminPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0f1115", color: "#e4e4e7", fontFamily: "inherit" }}>
+      <style>{ADMIN_STYLES}</style>
+
       {/* Header */}
-      <div style={{ background: "#16181d", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 32px", display: "flex", alignItems: "center", gap: 16, height: 60 }}>
+      <div style={{ background: "#16181d", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 20px", display: "flex", alignItems: "center", gap: 16, height: 60, flexWrap: "wrap" }}>
         <button
           onClick={() => navigate("/library")}
           style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "#71717a", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "6px 0" }}
@@ -493,21 +591,21 @@ export function AdminPage() {
           <ShieldAlert size={18} color="#ffcd5b" />
           <span style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>Obsidian Admin</span>
         </div>
-        <div style={{ marginLeft: "auto", fontSize: 12, color: "#71717a" }}>
+        <div className="admin-header-email" style={{ marginLeft: "auto" }}>
           Signed in as <strong style={{ color: "#ffcd5b" }}>{currentUser?.email}</strong>
         </div>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 20px" }}>
         {/* Tab navigation */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "#16181d", borderRadius: 10, padding: 4, width: "fit-content" }}>
+        <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "#16181d", borderRadius: 10, padding: 4, width: "fit-content", overflowX: "auto", maxWidth: "100%" }}>
           {TABS.map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               style={{
                 padding: "7px 18px", borderRadius: 8, border: "none", fontFamily: "inherit",
-                fontWeight: 700, fontSize: 13, cursor: "pointer",
+                fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap",
                 background: activeTab === tab ? "#ffcd5b" : "transparent",
                 color: activeTab === tab ? "#0f1115" : "#71717a",
               }}
