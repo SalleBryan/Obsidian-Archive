@@ -6,7 +6,9 @@ import {
   signOut,
   getCurrentUser,
   fetchUserAttributes,
-  signInWithRedirect
+  signInWithRedirect,
+  resetPassword,
+  confirmResetPassword,
 } from "aws-amplify/auth";
 import { SUPER_ADMIN_EMAILS, checkIsSuperAdmin } from "../config";
 
@@ -128,6 +130,37 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const handleForgotPassword = async (email) => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      await resetPassword({ username: email.trim() });
+      setAuthMode("resetPassword");
+      return { success: true };
+    } catch (err) {
+      setAuthError(err.message || "Failed to send reset code.");
+      return { error: err.message };
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleConfirmReset = async (email, code, newPassword) => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      await confirmResetPassword({ username: email.trim(), confirmationCode: code.trim(), newPassword });
+      setAuthMode("signin");
+      setAuthError("");
+      return { success: true };
+    } catch (err) {
+      setAuthError(err.message || "Failed to reset password.");
+      return { error: err.message };
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const handleGoogleSSO = async () => {
     setAuthLoading(true);
     setAuthError("");
@@ -161,6 +194,8 @@ export function AuthProvider({ children }) {
     handleSignUp,
     handleConfirmSignUp,
     handleGoogleSSO,
+    handleForgotPassword,
+    handleConfirmReset,
     handleSignOut
   };
 
