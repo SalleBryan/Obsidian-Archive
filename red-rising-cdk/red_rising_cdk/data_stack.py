@@ -92,6 +92,7 @@ class ObsidianDataStack(Stack):
         google_client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
         supported_idps = [cognito.UserPoolClientIdentityProvider.COGNITO]
 
+        google_idp = None
         if google_client_id and google_client_secret:
             google_idp = cognito.UserPoolIdentityProviderGoogle(
                 self, "GoogleIdP",
@@ -130,6 +131,12 @@ class ObsidianDataStack(Stack):
             ),
             prevent_user_existence_errors=True,
         )
+
+        # Ensure the Google IdP is fully created before CloudFormation updates
+        # the UserPoolClient to reference it — without this, CDK may parallelise
+        # the two resources and the client update fails with "provider does not exist".
+        if google_idp:
+            user_pool_client.node.add_dependency(google_idp)
 
         user_pool_domain = user_pool.add_domain(
             "ObsidianUserPoolDomain",
