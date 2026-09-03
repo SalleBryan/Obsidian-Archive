@@ -229,5 +229,46 @@ export const api = {
       const headers = await getAuthHeader();
       await fetch(`${EP.progress}/${bookId}`, { method: "DELETE", headers });
     } catch {}
-  }
+  },
+
+  // ── Admin ──
+  adminGetStats: async () => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.adminStats, { headers });
+    if (!res.ok) throw new Error("Failed to load stats");
+    return res.json();
+  },
+  adminGetUsers: async () => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.adminUsers, { headers });
+    if (!res.ok) throw new Error("Failed to load users");
+    const data = await res.json();
+    return data.users || [];
+  },
+  adminToggleUser: async (userId, action) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminUsers}/${userId}/${action}`, { method: "PUT", headers });
+    if (!res.ok) throw new Error(`Failed to ${action} user`);
+    return res.json();
+  },
+  adminGetBooks: async () => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.adminBooks, { headers });
+    if (!res.ok) throw new Error("Failed to load books");
+    const data = await res.json();
+    return data.books || [];
+  },
+  adminDeleteBook: async (bookId) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminBooks}/${bookId}`, { method: "DELETE", headers });
+    if (!res.ok) throw new Error("Failed to delete book");
+    return res.json();
+  },
+  adminGetRequests: async () => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.adminRequests, { headers });
+    if (!res.ok) throw new Error("Failed to load requests");
+    const data = await res.json();
+    return data.requests || [];
+  },
 };

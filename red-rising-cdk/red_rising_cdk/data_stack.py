@@ -32,7 +32,7 @@ class ObsidianDataStack(Stack):
             sign_in_aliases=cognito.SignInAliases(email=True),
             auto_verify=cognito.AutoVerifiedAttrs(email=True),
             user_verification=cognito.UserVerificationConfig(
-                email_subject="[Obsidian Archive] Your Verification Code: {####}",
+                email_subject="Your Obsidian Archive verification code: {####}",
                 email_style=cognito.VerificationEmailStyle.CODE,
                 email_body=(
                     "<!DOCTYPE html>"
@@ -65,7 +65,7 @@ class ObsidianDataStack(Stack):
                     "<p class='desc' style='font-size: 12px; color: #71717a; margin-bottom: 0;'>This code is valid for 24 hours. If you did not request this registration, you can safely ignore this email.</p>"
                     "</div>"
                     "<div class='footer'>"
-                    "&copy; 2026 Obsidian Archive &bull; Digisol Group"
+                    "&copy; 2026 Obsidian Archive &bull; Salle Bryan"
                     "</div>"
                     "</div>"
                     "</body>"
