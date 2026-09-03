@@ -30,7 +30,7 @@ export function AuthProvider({ children }) {
       const user = await getCurrentUser();
       const attrs = await fetchUserAttributes();
       const email = attrs.email || user.username;
-      const isAdmin = SUPER_ADMIN_EMAILS.includes(email.toLowerCase()) || email.toLowerCase().startsWith("bryan");
+      const isAdmin = SUPER_ADMIN_EMAILS.includes(email.toLowerCase());
       setCurrentUser({
         userId: user.userId,
         email,
