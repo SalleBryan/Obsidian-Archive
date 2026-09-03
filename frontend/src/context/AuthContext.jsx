@@ -10,6 +10,7 @@ import {
   resetPassword,
   confirmResetPassword,
 } from "aws-amplify/auth";
+import { Hub } from "aws-amplify/utils";
 import { SUPER_ADMIN_EMAILS, checkIsSuperAdmin } from "../config";
 
 const AuthContext = createContext(null);
@@ -45,6 +46,20 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     checkAuth();
+  }, [checkAuth]);
+
+  // After a Google SSO redirect, Amplify silently exchanges the auth code for
+  // tokens in the background. Hub fires "signedIn" when that completes — we
+  // use it to update React state so the UI reflects the authenticated user.
+  useEffect(() => {
+    const unsubscribe = Hub.listen("auth", ({ payload }) => {
+      if (payload.event === "signedIn") {
+        checkAuth();
+        setAuthModalOpen(false);
+        setAuthError("");
+      }
+    });
+    return unsubscribe;
   }, [checkAuth]);
 
   const openAuth = useCallback((mode = "signin") => {
@@ -167,7 +182,13 @@ export function AuthProvider({ children }) {
     try {
       await signInWithRedirect({ provider: "Google" });
     } catch (err) {
-      setAuthError("Google SSO: " + (err.message || "Configure Google OAuth Client ID in Cognito."));
+      if (err.name === "UserAlreadyAuthenticatedException") {
+        // Token is already valid in Amplify's store but React state didn't update
+        await checkAuth();
+        setAuthModalOpen(false);
+      } else {
+        setAuthError("Google SSO: " + (err.message || "Configure Google OAuth Client ID in Cognito."));
+      }
       setAuthLoading(false);
     }
   };
