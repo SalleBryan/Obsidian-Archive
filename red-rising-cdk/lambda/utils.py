@@ -1,5 +1,4 @@
 import json
-import os
 import base64
 
 CORS_HEADERS = {
@@ -10,9 +9,7 @@ CORS_HEADERS = {
 }
 
 SUPER_ADMIN_EMAILS = [
-    os.environ.get('SUPER_ADMIN_EMAIL', '').lower(),
-    'bryansalle17@gmail.com',
-    'bryan@digisol.com'
+    'bryanjakevita@gmail.com'
 ]
 
 def respond(status_code, body):
@@ -26,7 +23,7 @@ def get_auth_context(event):
     claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
     user_id = claims.get('sub')
     email = (claims.get('email') or '').lower()
-    is_super_admin = email in SUPER_ADMIN_EMAILS or email.startswith('bryan')
+    is_super_admin = email in SUPER_ADMIN_EMAILS
     return {
         "userId": user_id,
         "email": email,

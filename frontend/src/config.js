@@ -18,11 +18,10 @@ export const EP = {
 
 // ── SUPER ADMIN CHECK ─────────────────────────────────────────────────────────
 export const SUPER_ADMIN_EMAILS = [
-  "bryansalle17@gmail.com",
-  "bryan@digisol.com"
+  "bryanjakevita@gmail.com"
 ];
 export const checkIsSuperAdmin = (user) => {
   if (!user || !user.email) return false;
   const em = user.email.toLowerCase();
-  return SUPER_ADMIN_EMAILS.includes(em) || em.startsWith("bryansalle") || em.startsWith("bryan@");
+  return SUPER_ADMIN_EMAILS.includes(em);
 };
