@@ -31,6 +31,12 @@ class ObsidianDataStack(Stack):
             self_sign_up_enabled=True,
             sign_in_aliases=cognito.SignInAliases(email=True),
             auto_verify=cognito.AutoVerifiedAttrs(email=True),
+            email=cognito.UserPoolEmail.with_ses(
+                from_email="bryanjakevita@gmail.com",
+                from_name="Obsidian Archive",
+                ses_region="us-east-1",
+                ses_verified_identity="bryanjakevita@gmail.com",
+            ),
             user_verification=cognito.UserVerificationConfig(
                 email_subject="Your Obsidian Archive verification code: {####}",
                 email_style=cognito.VerificationEmailStyle.CODE,
@@ -125,6 +131,7 @@ class ObsidianDataStack(Stack):
                     cognito.OAuthScope.EMAIL,
                     cognito.OAuthScope.OPENID,
                     cognito.OAuthScope.PROFILE,
+                    cognito.OAuthScope.COGNITO_ADMIN,
                 ],
                 callback_urls=["http://localhost:5173/", "https://main.d2nheaqmsqnih6.amplifyapp.com/"],
                 logout_urls=["http://localhost:5173/", "https://main.d2nheaqmsqnih6.amplifyapp.com/"],
