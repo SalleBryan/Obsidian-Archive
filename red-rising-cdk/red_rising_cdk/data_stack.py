@@ -31,11 +31,6 @@ class ObsidianDataStack(Stack):
             self_sign_up_enabled=True,
             sign_in_aliases=cognito.SignInAliases(email=True),
             auto_verify=cognito.AutoVerifiedAttrs(email=True),
-            email=cognito.UserPoolEmail.with_ses(
-                from_email="bryanjakevita@gmail.com",
-                from_name="Obsidian Archive",
-                ses_region="us-east-1",
-            ),
             user_verification=cognito.UserVerificationConfig(
                 email_subject="Your Obsidian Archive verification code: {####}",
                 email_style=cognito.VerificationEmailStyle.CODE,
