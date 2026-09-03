@@ -138,9 +138,7 @@ class ObsidianDataStack(Stack):
             prevent_user_existence_errors=True,
         )
 
-        # Ensure the Google IdP is fully created before CloudFormation updates
-        # the UserPoolClient to reference it — without this, CDK may parallelise
-        # the two resources and the client update fails with "provider does not exist".
+        
         if google_idp:
             user_pool_client.node.add_dependency(google_idp)
 
