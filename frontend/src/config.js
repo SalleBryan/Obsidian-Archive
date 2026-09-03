@@ -10,6 +10,10 @@ export const EP = {
   profile: `${API_BASE}/profile`,
   notifications: `${API_BASE}/notifications`,
   progress: `${API_BASE}/progress`,
+  adminStats: `${API_BASE}/admin/stats`,
+  adminUsers: `${API_BASE}/admin/users`,
+  adminBooks: `${API_BASE}/admin/books`,
+  adminRequests: `${API_BASE}/admin/requests`,
 };
 
 // ── SUPER ADMIN CHECK ─────────────────────────────────────────────────────────

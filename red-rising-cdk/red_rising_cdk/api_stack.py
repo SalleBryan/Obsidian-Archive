@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_lambda_event_sources as lambda_events,
     aws_apigateway as apigw,
     aws_cognito as cognito,
+    aws_iam as iam,
 )
 from constructs import Construct
 
@@ -120,6 +121,30 @@ class ObsidianApiStack(Stack):
             environment=common_env,
         )
         progress_table.grant_read_write_data(progress_fn)
+
+        # 1g. Admin: super-admin only management panel
+        admin_fn = _lambda.Function(
+            self, "AdminFn",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="admin.lambda_handler",
+            code=shared_code,
+            timeout=Duration.seconds(30),
+            environment={**common_env, "USER_POOL_ID": user_pool.user_pool_id},
+        )
+        books_table.grant_read_write_data(admin_fn)
+        requests_table.grant_read_data(admin_fn)
+        profiles_table.grant_read_data(admin_fn)
+        covers_bucket.grant_read_write(admin_fn)
+        files_bucket.grant_read_write(admin_fn)
+        admin_fn.add_to_role_policy(iam.PolicyStatement(
+            actions=[
+                "cognito-idp:ListUsers",
+                "cognito-idp:AdminDisableUser",
+                "cognito-idp:AdminEnableUser",
+                "cognito-idp:AdminGetUser",
+            ],
+            resources=[user_pool.user_pool_arn],
+        ))
 
         # ── 2. API GATEWAY ──
         api = apigw.RestApi(
@@ -241,6 +266,43 @@ class ObsidianApiStack(Stack):
         notifications_res.add_method("PUT", apigw.LambdaIntegration(writer_fn),
                                      authorizer=cognito_authorizer,
                                      authorization_type=apigw.AuthorizationType.COGNITO)
+
+        # ── /admin/* (super-admin only — auth enforced in Lambda too) ──
+        admin_res = api.root.add_resource("admin")
+
+        admin_stats = admin_res.add_resource("stats")
+        admin_stats.add_method("GET", apigw.LambdaIntegration(admin_fn),
+                               authorizer=cognito_authorizer,
+                               authorization_type=apigw.AuthorizationType.COGNITO)
+
+        admin_users = admin_res.add_resource("users")
+        admin_users.add_method("GET", apigw.LambdaIntegration(admin_fn),
+                               authorizer=cognito_authorizer,
+                               authorization_type=apigw.AuthorizationType.COGNITO)
+
+        admin_user_by_id = admin_users.add_resource("{userId}")
+        admin_user_disable = admin_user_by_id.add_resource("disable")
+        admin_user_disable.add_method("PUT", apigw.LambdaIntegration(admin_fn),
+                                      authorizer=cognito_authorizer,
+                                      authorization_type=apigw.AuthorizationType.COGNITO)
+        admin_user_enable = admin_user_by_id.add_resource("enable")
+        admin_user_enable.add_method("PUT", apigw.LambdaIntegration(admin_fn),
+                                     authorizer=cognito_authorizer,
+                                     authorization_type=apigw.AuthorizationType.COGNITO)
+
+        admin_books = admin_res.add_resource("books")
+        admin_books.add_method("GET", apigw.LambdaIntegration(admin_fn),
+                               authorizer=cognito_authorizer,
+                               authorization_type=apigw.AuthorizationType.COGNITO)
+        admin_book_by_id = admin_books.add_resource("{bookId}")
+        admin_book_by_id.add_method("DELETE", apigw.LambdaIntegration(admin_fn),
+                                    authorizer=cognito_authorizer,
+                                    authorization_type=apigw.AuthorizationType.COGNITO)
+
+        admin_requests = admin_res.add_resource("requests")
+        admin_requests.add_method("GET", apigw.LambdaIntegration(admin_fn),
+                                  authorizer=cognito_authorizer,
+                                  authorization_type=apigw.AuthorizationType.COGNITO)
 
         # ── 3. STACK OUTPUTS ──
         CfnOutput(self, "ApiUrl",

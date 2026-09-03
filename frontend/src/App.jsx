@@ -14,6 +14,7 @@ import { PublicLibraryPage } from "./pages/PublicLibraryPage";
 import { RequestsBoardPage } from "./pages/RequestsBoardPage";
 import { UploadBookPage } from "./pages/UploadBookPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
+import { AdminPage } from "./pages/AdminPage";
 import { STYLES } from "./styles";
 import "./amplifyConfig";
 
@@ -57,6 +58,18 @@ function AppShell() {
   };
 
   const isReaderMode = location.pathname.startsWith("/read/");
+  const isAdminMode  = location.pathname.startsWith("/admin");
+
+  if (isAdminMode) {
+    return (
+      <>
+        <style>{STYLES}</style>
+        <Routes>
+          <Route path="/admin" element={<AdminPage />} />
+        </Routes>
+      </>
+    );
+  }
 
   if (isReaderMode) {
     return (
