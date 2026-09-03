@@ -12,7 +12,7 @@ export const amplifyConfig = {
         email: true,
         oauth: {
           domain: "obsidian-archive.auth.us-east-1.amazoncognito.com",
-          scopes: ["email", "openid", "profile"],
+          scopes: ["email", "openid", "profile", "aws.cognito.signin.user.admin"],
           redirectSignIn: [redirectUrl],
           redirectSignOut: [redirectUrl],
           responseType: "code"
