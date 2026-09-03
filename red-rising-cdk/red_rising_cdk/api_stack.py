@@ -132,8 +132,8 @@ class ObsidianApiStack(Stack):
             environment={**common_env, "USER_POOL_ID": user_pool.user_pool_id},
         )
         books_table.grant_read_write_data(admin_fn)
-        requests_table.grant_read_data(admin_fn)
-        profiles_table.grant_read_data(admin_fn)
+        requests_table.grant_read_write_data(admin_fn)
+        profiles_table.grant_read_write_data(admin_fn)
         covers_bucket.grant_read_write(admin_fn)
         files_bucket.grant_read_write(admin_fn)
         admin_fn.add_to_role_policy(iam.PolicyStatement(
@@ -142,6 +142,9 @@ class ObsidianApiStack(Stack):
                 "cognito-idp:AdminDisableUser",
                 "cognito-idp:AdminEnableUser",
                 "cognito-idp:AdminGetUser",
+                "cognito-idp:AdminCreateUser",
+                "cognito-idp:AdminUpdateUserAttributes",
+                "cognito-idp:AdminDeleteUser",
             ],
             resources=[user_pool.user_pool_arn],
         ))
@@ -279,8 +282,17 @@ class ObsidianApiStack(Stack):
         admin_users.add_method("GET", apigw.LambdaIntegration(admin_fn),
                                authorizer=cognito_authorizer,
                                authorization_type=apigw.AuthorizationType.COGNITO)
+        admin_users.add_method("POST", apigw.LambdaIntegration(admin_fn),
+                               authorizer=cognito_authorizer,
+                               authorization_type=apigw.AuthorizationType.COGNITO)
 
         admin_user_by_id = admin_users.add_resource("{userId}")
+        admin_user_by_id.add_method("PUT", apigw.LambdaIntegration(admin_fn),
+                                    authorizer=cognito_authorizer,
+                                    authorization_type=apigw.AuthorizationType.COGNITO)
+        admin_user_by_id.add_method("DELETE", apigw.LambdaIntegration(admin_fn),
+                                    authorizer=cognito_authorizer,
+                                    authorization_type=apigw.AuthorizationType.COGNITO)
         admin_user_disable = admin_user_by_id.add_resource("disable")
         admin_user_disable.add_method("PUT", apigw.LambdaIntegration(admin_fn),
                                       authorizer=cognito_authorizer,
@@ -294,7 +306,13 @@ class ObsidianApiStack(Stack):
         admin_books.add_method("GET", apigw.LambdaIntegration(admin_fn),
                                authorizer=cognito_authorizer,
                                authorization_type=apigw.AuthorizationType.COGNITO)
+        admin_books.add_method("POST", apigw.LambdaIntegration(admin_fn),
+                               authorizer=cognito_authorizer,
+                               authorization_type=apigw.AuthorizationType.COGNITO)
         admin_book_by_id = admin_books.add_resource("{bookId}")
+        admin_book_by_id.add_method("PUT", apigw.LambdaIntegration(admin_fn),
+                                    authorizer=cognito_authorizer,
+                                    authorization_type=apigw.AuthorizationType.COGNITO)
         admin_book_by_id.add_method("DELETE", apigw.LambdaIntegration(admin_fn),
                                     authorizer=cognito_authorizer,
                                     authorization_type=apigw.AuthorizationType.COGNITO)
@@ -303,6 +321,16 @@ class ObsidianApiStack(Stack):
         admin_requests.add_method("GET", apigw.LambdaIntegration(admin_fn),
                                   authorizer=cognito_authorizer,
                                   authorization_type=apigw.AuthorizationType.COGNITO)
+        admin_requests.add_method("POST", apigw.LambdaIntegration(admin_fn),
+                                  authorizer=cognito_authorizer,
+                                  authorization_type=apigw.AuthorizationType.COGNITO)
+        admin_request_by_id = admin_requests.add_resource("{requestId}")
+        admin_request_by_id.add_method("PUT", apigw.LambdaIntegration(admin_fn),
+                                       authorizer=cognito_authorizer,
+                                       authorization_type=apigw.AuthorizationType.COGNITO)
+        admin_request_by_id.add_method("DELETE", apigw.LambdaIntegration(admin_fn),
+                                       authorizer=cognito_authorizer,
+                                       authorization_type=apigw.AuthorizationType.COGNITO)
 
         # ── 3. STACK OUTPUTS ──
         CfnOutput(self, "ApiUrl",

@@ -245,6 +245,32 @@ export const api = {
     const data = await res.json();
     return data.users || [];
   },
+  adminCreateUser: async (payload) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.adminUsers, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to create user");
+    return res.json();
+  },
+  adminUpdateUser: async (userId, payload) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminUsers}/${userId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("Failed to update user");
+    return res.json();
+  },
+  adminDeleteUser: async (userId) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminUsers}/${userId}`, { method: "DELETE", headers });
+    if (!res.ok) throw new Error("Failed to delete user");
+    return res.json();
+  },
   adminToggleUser: async (userId, action) => {
     const headers = await getAuthHeader();
     const res = await fetch(`${EP.adminUsers}/${userId}/${action}`, { method: "PUT", headers });
@@ -258,6 +284,26 @@ export const api = {
     const data = await res.json();
     return data.books || [];
   },
+  adminCreateBook: async (payload) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.adminBooks, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("Failed to create book");
+    return res.json();
+  },
+  adminUpdateBook: async (bookId, payload) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminBooks}/${bookId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("Failed to update book");
+    return res.json();
+  },
   adminDeleteBook: async (bookId) => {
     const headers = await getAuthHeader();
     const res = await fetch(`${EP.adminBooks}/${bookId}`, { method: "DELETE", headers });
@@ -270,5 +316,31 @@ export const api = {
     if (!res.ok) throw new Error("Failed to load requests");
     const data = await res.json();
     return data.requests || [];
+  },
+  adminCreateRequest: async (payload) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.adminRequests, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("Failed to create request");
+    return res.json();
+  },
+  adminUpdateRequest: async (requestId, payload) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminRequests}/${requestId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("Failed to update request");
+    return res.json();
+  },
+  adminDeleteRequest: async (requestId) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminRequests}/${requestId}`, { method: "DELETE", headers });
+    if (!res.ok) throw new Error("Failed to delete request");
+    return res.json();
   },
 };
