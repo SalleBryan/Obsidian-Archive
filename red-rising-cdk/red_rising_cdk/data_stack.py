@@ -35,7 +35,6 @@ class ObsidianDataStack(Stack):
                 from_email="bryanjakevita@gmail.com",
                 from_name="Obsidian Archive",
                 ses_region="us-east-1",
-                ses_verified_identity="bryanjakevita@gmail.com",
             ),
             user_verification=cognito.UserVerificationConfig(
                 email_subject="Your Obsidian Archive verification code: {####}",
