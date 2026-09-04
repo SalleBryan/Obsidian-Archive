@@ -17,6 +17,7 @@ from aws_cdk import (
     aws_cloudwatch_actions as cw_actions,
     aws_sns as sns,
     aws_sns_subscriptions as sns_subs,
+    aws_budgets as budgets,
 )
 from constructs import Construct
 
@@ -152,7 +153,6 @@ class ObsidianDataStack(Stack):
             o_auth=cognito.OAuthSettings(
                 flows=cognito.OAuthFlows(
                     authorization_code_grant=True,
-                    implicit_code_grant=True,
                 ),
                 scopes=[
                     cognito.OAuthScope.EMAIL,
@@ -302,6 +302,44 @@ class ObsidianDataStack(Stack):
             treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
         )
         dlq_messages_alarm.add_alarm_action(cw_actions.SnsAction(dlq_alert_topic))
+
+        # AWS Budgets tracks total account spend, not per-stack spend — so this
+        # is only created once (on the prod deploy) to avoid two overlapping
+        # budgets fighting over the same account-wide cost data when a dev
+        # stage stack is also deployed.
+        if stage == "prod":
+            budgets.CfnBudget(
+                self, "ObsidianMonthlyBudget",
+                budget=budgets.CfnBudget.BudgetDataProperty(
+                    budget_type="COST",
+                    time_unit="MONTHLY",
+                    budget_limit=budgets.CfnBudget.SpendProperty(amount=20, unit="USD"),
+                ),
+                notifications_with_subscribers=[
+                    budgets.CfnBudget.NotificationWithSubscribersProperty(
+                        notification=budgets.CfnBudget.NotificationProperty(
+                            notification_type="ACTUAL",
+                            comparison_operator="GREATER_THAN",
+                            threshold=80,
+                            threshold_type="PERCENTAGE",
+                        ),
+                        subscribers=[budgets.CfnBudget.SubscriberProperty(
+                            subscription_type="EMAIL", address="bryanjakevita@gmail.com"
+                        )],
+                    ),
+                    budgets.CfnBudget.NotificationWithSubscribersProperty(
+                        notification=budgets.CfnBudget.NotificationProperty(
+                            notification_type="FORECASTED",
+                            comparison_operator="GREATER_THAN",
+                            threshold=100,
+                            threshold_type="PERCENTAGE",
+                        ),
+                        subscribers=[budgets.CfnBudget.SubscriberProperty(
+                            subscription_type="EMAIL", address="bryanjakevita@gmail.com"
+                        )],
+                    ),
+                ],
+            )
 
         # ══════════════════════════════════════════════════════════════════════
         # 4. S3 — Covers bucket (public) + Files bucket (private)

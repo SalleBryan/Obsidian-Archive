@@ -1,12 +1,19 @@
 import { useState, useEffect } from "react";
-import { Loader2, Save, User, LogIn, Shield, CheckCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Loader2, Save, User, LogIn, Shield, CheckCheck, AlertTriangle, Trash2 } from "lucide-react";
 import { api } from "../api";
+import { useAuth } from "../context/AuthContext";
 
 // ── PAGE 8: USER PROFILE PAGE ────────────────────────────────────────────────
 export function UserProfilePage({ currentUser, onOpenAuth, isSuperAdmin }) {
+  const navigate = useNavigate();
+  const { handleDeleteAccount } = useAuth();
   const [profile, setProfile] = useState({ displayName: "", bio: "", requestNotifications: true });
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -48,6 +55,19 @@ export function UserProfilePage({ currentUser, onOpenAuth, isSuperAdmin }) {
       alert(err.message || "Failed to update profile.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleteConfirmText !== "DELETE") return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await handleDeleteAccount();
+      navigate("/library");
+    } catch (err) {
+      setDeleteError(err.message || "Failed to delete account.");
+      setDeleting(false);
     }
   };
 
@@ -121,6 +141,41 @@ export function UserProfilePage({ currentUser, onOpenAuth, isSuperAdmin }) {
 
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? <Loader2 size={16} className="spin" /> : <><Save size={16} /> Save Profile</>}
+        </button>
+      </div>
+
+      <div className="editor-card glass-panel" style={{ maxWidth: 600, marginTop: 24, border: "1px solid rgba(248,113,113,0.25)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <AlertTriangle size={18} color="#f87171" />
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: "#f87171" }}>Danger Zone</h3>
+        </div>
+        <p style={{ fontSize: 13, color: "#a1a1aa", marginBottom: 16 }}>
+          Permanently deletes your account and profile. Your uploaded books and requests are not automatically removed —
+          contact an admin if you also need those taken down. This cannot be undone.
+        </p>
+
+        {deleteError && (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(248,113,113,0.15)", color: "#f87171", fontSize: 13, marginBottom: 16 }}>
+            {deleteError}
+          </div>
+        )}
+
+        <div className="field">
+          <label>Type <strong>DELETE</strong> to confirm</label>
+          <input
+            type="text"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder="DELETE"
+          />
+        </div>
+
+        <button
+          className="btn btn-danger"
+          onClick={handleDelete}
+          disabled={deleting || deleteConfirmText !== "DELETE"}
+        >
+          {deleting ? <Loader2 size={16} className="spin" /> : <><Trash2 size={16} /> Delete My Account</>}
         </button>
       </div>
     </div>

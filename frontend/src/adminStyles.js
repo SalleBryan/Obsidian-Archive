@@ -55,6 +55,16 @@ export const ADMIN_STYLES = `
     border: 1px solid rgba(255,255,255,0.1); color: #e4e4e7; font-size: 13px; font-family: inherit; box-sizing: border-box;
   }
   .admin-add-btn { padding: 7px 14px; font-size: 12px; white-space: nowrap; }
+  .admin-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .admin-bulk-bar {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 16px; padding: 10px 16px; border-radius: 10px;
+    background: rgba(255,205,91,0.08); border: 1px solid rgba(255,205,91,0.25);
+    font-size: 13px; font-weight: 700; color: #ffcd5b;
+  }
+  .admin-row-check { display: flex; align-items: center; justify-content: center; }
+  .admin-row-check input, .admin-thead-check input { accent-color: #ffcd5b; cursor: pointer; width: 15px; height: 15px; }
 
   .admin-table-card { background: #16181d; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; }
   .admin-empty { padding: 24px; text-align: center; color: #71717a; font-size: 13px; }

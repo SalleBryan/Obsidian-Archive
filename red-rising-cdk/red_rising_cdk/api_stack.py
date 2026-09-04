@@ -258,6 +258,9 @@ class ObsidianApiStack(Stack):
         profile_res.add_method("PUT", apigw.LambdaIntegration(profile_fn),
                                authorizer=cognito_authorizer,
                                authorization_type=apigw.AuthorizationType.COGNITO)
+        profile_res.add_method("DELETE", apigw.LambdaIntegration(profile_fn),
+                               authorizer=cognito_authorizer,
+                               authorization_type=apigw.AuthorizationType.COGNITO)
 
         # ── /progress (authenticated GET — list) ──
         progress_res = api.root.add_resource("progress")
@@ -299,6 +302,11 @@ class ObsidianApiStack(Stack):
                                authorizer=cognito_authorizer,
                                authorization_type=apigw.AuthorizationType.COGNITO)
 
+        admin_users_batch_delete = admin_users.add_resource("batch-delete")
+        admin_users_batch_delete.add_method("POST", apigw.LambdaIntegration(admin_fn),
+                                            authorizer=cognito_authorizer,
+                                            authorization_type=apigw.AuthorizationType.COGNITO)
+
         admin_user_by_id = admin_users.add_resource("{userId}")
         admin_user_by_id.add_method("PUT", apigw.LambdaIntegration(admin_fn),
                                     authorizer=cognito_authorizer,
@@ -322,6 +330,11 @@ class ObsidianApiStack(Stack):
         admin_books.add_method("POST", apigw.LambdaIntegration(admin_fn),
                                authorizer=cognito_authorizer,
                                authorization_type=apigw.AuthorizationType.COGNITO)
+        admin_books_batch_delete = admin_books.add_resource("batch-delete")
+        admin_books_batch_delete.add_method("POST", apigw.LambdaIntegration(admin_fn),
+                                            authorizer=cognito_authorizer,
+                                            authorization_type=apigw.AuthorizationType.COGNITO)
+
         admin_book_by_id = admin_books.add_resource("{bookId}")
         admin_book_by_id.add_method("PUT", apigw.LambdaIntegration(admin_fn),
                                     authorizer=cognito_authorizer,
@@ -337,6 +350,11 @@ class ObsidianApiStack(Stack):
         admin_requests.add_method("POST", apigw.LambdaIntegration(admin_fn),
                                   authorizer=cognito_authorizer,
                                   authorization_type=apigw.AuthorizationType.COGNITO)
+        admin_requests_batch_delete = admin_requests.add_resource("batch-delete")
+        admin_requests_batch_delete.add_method("POST", apigw.LambdaIntegration(admin_fn),
+                                               authorizer=cognito_authorizer,
+                                               authorization_type=apigw.AuthorizationType.COGNITO)
+
         admin_request_by_id = admin_requests.add_resource("{requestId}")
         admin_request_by_id.add_method("PUT", apigw.LambdaIntegration(admin_fn),
                                        authorizer=cognito_authorizer,
