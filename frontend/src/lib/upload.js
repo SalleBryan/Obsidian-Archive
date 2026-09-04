@@ -1,5 +1,4 @@
 
-// ── S3 DIRECT UPLOAD HELPER (CROSS-PLATFORM & MOBILE COMPATIBLE) ──────────────
 export function uploadToS3(uploadUrl, file, contentType, onProgress) {
   return new Promise(async (resolve, reject) => {
     try {

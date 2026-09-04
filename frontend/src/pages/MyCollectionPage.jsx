@@ -2,10 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Library, Loader2, Lock, LogIn } from "lucide-react";
 import { api } from "../api";
-import { HorizontalShelf, ContinueReadingShelf, BookCardItem } from "../components/shelves";
+import { HorizontalShelf, ContinueReadingShelf, BookCardItem } from "../components/Shelves";
 import { getReadingList, loadMergedReadingList } from "../lib/progress";
 
-// ── MY COLLECTION ──────────────────────────────────────────────────────────
 export function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }) {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);

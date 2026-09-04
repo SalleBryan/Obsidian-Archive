@@ -1,7 +1,6 @@
 import { BookOpen, Lock, Globe, ChevronRight } from "lucide-react";
-import { getCatColor } from "../constants";
+import { getCatColor } from "../config/constants";
 
-// ── HORIZONTAL SHELF COMPONENTS ───────────────────────────────────────────────
 export function BookCoverShelfItem({ book, onSelect, size = "standard" }) {
   const isLarge = size === "large";
   return (
@@ -59,7 +58,6 @@ export function HorizontalShelf({ title, subtitle, onSeeAll, books, onSelectBook
   );
 }
 
-// ── CONTINUE READING SHELF (progress-aware) ──────────────────────────────────
 // Renders books the user has started, each with a % completion bar. `entries`
 // come from the localStorage reading list; `coverMap` supplies covers/category
 // when the full book record is known (owned or public).

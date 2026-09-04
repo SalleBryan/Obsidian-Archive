@@ -1,6 +1,5 @@
 import { api } from "../api";
 
-// ── READING PROGRESS INDEX ────────────────────────────────────────────────────
 // localStorage is the instant, per-device cache. When the user is signed in we
 // also mirror progress to DynamoDB (via the /progress API) so "Continue Reading"
 // and resume positions follow them across devices.
@@ -32,7 +31,6 @@ export function recordProgress(userId, entry) {
   syncProgressToCloud(userId, entry);
 }
 
-// ── Cloud sync (only for signed-in users; "guest" stays local-only) ───────────
 const _syncTimers = {};
 
 // Debounced push of one book's progress to DynamoDB. Reading fires this on every

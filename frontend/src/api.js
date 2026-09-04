@@ -2,7 +2,6 @@ import { fetchAuthSession } from "aws-amplify/auth";
 import { EP } from "./config";
 import { uploadToS3 } from "./lib/upload";
 
-// ── API CLIENT ────────────────────────────────────────────────────────────────
 async function getAuthHeader() {
   try {
     const session = await fetchAuthSession();
@@ -218,7 +217,6 @@ export const api = {
     return res.json();
   },
 
-  // ── Reading progress (cross-device) ──
   getProgress: async () => {
     try {
       const headers = await getAuthHeader();
@@ -247,7 +245,6 @@ export const api = {
     } catch {}
   },
 
-  // ── Admin ──
   adminGetStats: async () => {
     const headers = await getAuthHeader();
     const res = await fetch(EP.adminStats, { headers });

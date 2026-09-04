@@ -127,7 +127,6 @@ export function AuthModal() {
               </div>
             )}
 
-            {/* ── SIGN IN ── */}
             {authMode === "signin" && (
               <>
                 <button
@@ -168,7 +167,6 @@ export function AuthModal() {
               </>
             )}
 
-            {/* ── SIGN UP ── */}
             {authMode === "signup" && (
               <>
                 <button
@@ -217,7 +215,6 @@ export function AuthModal() {
               </>
             )}
 
-            {/* ── CONFIRM SIGN UP ── */}
             {authMode === "confirm" && (
               <form onSubmit={onSubmitConfirm}>
                 <p style={{ fontSize: 14, color: "#a1a1aa", marginBottom: 16, lineHeight: 1.5 }}>
@@ -236,7 +233,6 @@ export function AuthModal() {
               </form>
             )}
 
-            {/* ── FORGOT PASSWORD ── */}
             {authMode === "forgot" && (
               <form onSubmit={onSubmitForgot}>
                 <p style={{ fontSize: 14, color: "#a1a1aa", marginBottom: 16, lineHeight: 1.5 }}>
@@ -255,7 +251,6 @@ export function AuthModal() {
               </form>
             )}
 
-            {/* ── RESET PASSWORD ── */}
             {authMode === "resetPassword" && (
               <form onSubmit={onSubmitReset}>
                 <p style={{ fontSize: 14, color: "#a1a1aa", marginBottom: 16, lineHeight: 1.5 }}>

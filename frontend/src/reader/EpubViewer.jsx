@@ -52,7 +52,6 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
     });
   }, []);
 
-  // ── LOAD EPUB ──────────────────────────────────────────────────────────────
   useEffect(() => {
     let isMounted = true;
     let book = null;
@@ -186,7 +185,6 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
     } catch {}
   }, [locationsReady]);
 
-  // ── KEYBOARD NAVIGATION ────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (searchOpen && e.key !== "Escape") return; // let search field own keys
@@ -205,7 +203,6 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [searchOpen]);
 
-  // ── SWIPE NAVIGATION (mobile) ──────────────────────────────────────────────
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
@@ -218,7 +215,6 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
     }
   };
 
-  // ── IN-BOOK SEARCH ─────────────────────────────────────────────────────────
   const handleSearch = async () => {
     if (!searchQuery.trim() || !bookRef.current) return;
     setSearchLoading(true);
@@ -252,7 +248,6 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ── SUB-BAR: chapter · progress · search toggle ── */}
       <div style={{
         height: 40, display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "0 16px", fontSize: 12, background: panelBg, color: panelFg,
@@ -291,7 +286,6 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
         </div>
       </div>
 
-      {/* ── SEARCH PANEL ── */}
       <AnimatePresence>
         {searchOpen && (
           <motion.div
@@ -344,7 +338,6 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
         )}
       </AnimatePresence>
 
-      {/* ── TOC DRAWER ── */}
       <AnimatePresence>
         {tocOpen && (
           <motion.div
@@ -381,7 +374,6 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
         )}
       </AnimatePresence>
 
-      {/* ── READING STAGE ── */}
       <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
         {!isMobile && (
           <button onClick={prev} className="reader-nav-btn" style={{ left: 8 }} title="Previous page  (← Arrow Key)">

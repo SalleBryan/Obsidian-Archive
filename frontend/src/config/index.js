@@ -1,6 +1,5 @@
-import adminConfig from "./admin-config.json";
+import adminConfig from "./adminConfig.json";
 
-// ── API CONFIGURATION ─────────────────────────────────────────────────────────
 export const API_BASE = "https://0aw1ajoft6.execute-api.us-east-1.amazonaws.com/prod";
 export const EP = {
   books: `${API_BASE}/books`,
@@ -20,9 +19,7 @@ export const EP = {
   adminRequests: `${API_BASE}/admin/requests`,
 };
 
-// ── SUPER ADMIN CHECK ─────────────────────────────────────────────────────────
-// Single source of truth: admin-config.json. The CDK backend reads the same
-// file at deploy time (see api_stack.py) so both sides can never drift apart.
+// adminConfig.json is also read by the CDK backend at deploy time (api_stack.py).
 export const SUPER_ADMIN_EMAILS = adminConfig.superAdminEmails;
 export const checkIsSuperAdmin = (user) => {
   if (!user || !user.email) return false;
