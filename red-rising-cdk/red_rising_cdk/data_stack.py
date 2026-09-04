@@ -102,8 +102,19 @@ class ObsidianDataStack(Stack):
 
         google_idp = None
         if google_client_id:
-            google_client_secret_ref = secretsmanager.Secret.from_secret_name_v2(
-                self, "GoogleClientSecretRef", "obsidian/google-client-secret"
+            # Secrets Manager always appends a random 6-character suffix to a
+            # secret's real ARN (e.g. "...secret-yhmZJj"), which can't be
+            # predicted from the name alone. from_secret_name_v2() guesses an
+            # ARN without that suffix, which CloudFormation then can't resolve
+            # ("ResourceNotFoundException" at deploy time even though the
+            # secret genuinely exists). Resolving the exact ARN via boto3 at
+            # synth time and referencing it directly avoids that mismatch.
+            import boto3
+            _secret_arn = boto3.client(
+                "secretsmanager", region_name=os.environ.get("CDK_DEFAULT_REGION", "us-east-1")
+            ).describe_secret(SecretId="obsidian/google-client-secret")["ARN"]
+            google_client_secret_ref = secretsmanager.Secret.from_secret_complete_arn(
+                self, "GoogleClientSecretRef", _secret_arn
             )
             google_idp = cognito.UserPoolIdentityProviderGoogle(
                 self, "GoogleIdP",
