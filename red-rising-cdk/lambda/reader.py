@@ -1,7 +1,7 @@
 import json
 import boto3
 import os
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 from utils import respond, get_auth_context
 
 dynamodb = boto3.resource('dynamodb')
@@ -9,10 +9,12 @@ dynamodb = boto3.resource('dynamodb')
 BOOKS_TABLE = os.environ.get('BOOKS_TABLE')
 REQUESTS_TABLE = os.environ.get('REQUESTS_TABLE')
 NOTIFICATIONS_TABLE = os.environ.get('NOTIFICATIONS_TABLE')
+ANNOUNCEMENT_TABLE = os.environ.get('ANNOUNCEMENT_TABLE')
 
 books_table = dynamodb.Table(BOOKS_TABLE) if BOOKS_TABLE else None
 requests_table = dynamodb.Table(REQUESTS_TABLE) if REQUESTS_TABLE else None
 notifications_table = dynamodb.Table(NOTIFICATIONS_TABLE) if NOTIFICATIONS_TABLE else None
+announcement_table = dynamodb.Table(ANNOUNCEMENT_TABLE) if ANNOUNCEMENT_TABLE else None
 
 # Internal fields that NO client ever needs: the raw S3 key (internal storage path)
 # and any stored PII. Reading a book always goes through a presigned URL, so the
@@ -40,10 +42,22 @@ def lambda_handler(event, context):
         user_id = auth['userId']
         is_super_admin = auth['isSuperAdmin']
 
+        if resource == '/announcement':
+            if not announcement_table:
+                return respond(200, {"active": False})
+            resp = announcement_table.get_item(Key={'id': 'current'})
+            item = resp.get('Item')
+            if not item or not item.get('active'):
+                return respond(200, {"active": False})
+            return respond(200, {"active": True, "message": item.get('message', ''), "updatedAt": item.get('updatedAt', '')})
+
         if resource == '/books':
             resp = books_table.query(
                 IndexName='VisibilityIndex',
-                KeyConditionExpression=Key('visibility').eq('public')
+                KeyConditionExpression=Key('visibility').eq('public'),
+                # Books created before moderation existed have no moderationStatus
+                # field at all — treat those as approved rather than hiding them.
+                FilterExpression=Attr('moderationStatus').eq('approved') | Attr('moderationStatus').not_exists()
             )
             return respond(200, {"books": [public_book(b) for b in resp.get('Items', [])]})
 
@@ -67,6 +81,11 @@ def lambda_handler(event, context):
             if book.get('visibility') == 'private':
                 return respond(403, {"error": "This book is in a private collection."})
 
+            # Unauthenticated callers only ever see approved books — a pending
+            # or rejected book doesn't exist as far as they're concerned.
+            if book.get('moderationStatus', 'approved') not in ('approved',):
+                return respond(404, {"error": "Book not found"})
+
             return respond(200, public_book(book))
 
         elif resource == '/books/{bookId}/auth':
@@ -77,12 +96,18 @@ def lambda_handler(event, context):
             if not book:
                 return respond(404, {"error": "Book not found"})
 
-            if book.get('visibility') == 'private':
-                if not user_id or (book.get('ownerId') != user_id and not is_super_admin):
-                    return respond(403, {"error": "This book is in a private collection."})
+            is_owner_or_admin = bool(user_id) and (book.get('ownerId') == user_id or is_super_admin)
+
+            if book.get('visibility') == 'private' and not is_owner_or_admin:
+                return respond(403, {"error": "This book is in a private collection."})
+
+            # A pending/rejected public book is only visible to its owner or an
+            # admin — everyone else gets the same "not found" a stranger would.
+            if book.get('moderationStatus', 'approved') != 'approved' and not is_owner_or_admin:
+                return respond(404, {"error": "Book not found"})
 
             # Only expose ownerId to the actual owner or super admins
-            if user_id == book.get('ownerId') or is_super_admin:
+            if is_owner_or_admin:
                 return respond(200, client_book(book))
             else:
                 return respond(200, public_book(book))
@@ -91,7 +116,13 @@ def lambda_handler(event, context):
             if not requests_table:
                 return respond(200, {"requests": []})
             resp = requests_table.scan()
-            return respond(200, {"requests": resp.get('Items', [])})
+            items = resp.get('Items', [])
+            for item in items:
+                upvoters = item.pop('upvoterIds', None) or set()
+                item['upvoteCount'] = len(upvoters)
+                item['hasUpvoted'] = bool(user_id) and user_id in upvoters
+            items.sort(key=lambda x: x.get('upvoteCount', 0), reverse=True)
+            return respond(200, {"requests": items})
 
         elif resource == '/notifications':
             if not user_id or not notifications_table:

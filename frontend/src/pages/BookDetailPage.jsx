@@ -4,7 +4,7 @@ import { Pencil, Trash2, ArrowLeft, BookOpen, Library, Loader2, AlertTriangle, L
 import { api } from "../api";
 import { getCatColor } from "../constants";
 
-// ── PAGE 5: BOOK DETAIL (WITH OWNER/SUPER ADMIN PERMISSIONS) ─────────────────
+// ── BOOK DETAIL — owner/super-admin get edit & delete controls ────────────────
 export function BookDetailPage({ currentUser, onOpenAuth, isSuperAdmin, authChecked }) {
   const { bookId } = useParams();
   const navigate = useNavigate();
@@ -79,6 +79,18 @@ export function BookDetailPage({ currentUser, onOpenAuth, isSuperAdmin, authChec
               {book.category || "General"} · {book.visibility === "private" ? "Private Collection" : "Public Library"}
             </span>
           </div>
+
+          {canModify && book.visibility === "public" && book.moderationStatus && book.moderationStatus !== "approved" && (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999,
+              fontSize: 12, fontWeight: 700, marginBottom: 16,
+              color: book.moderationStatus === "pending" ? "#ffcd5b" : "#f87171",
+              background: book.moderationStatus === "pending" ? "rgba(255,205,91,0.15)" : "rgba(248,113,113,0.15)",
+            }}>
+              <AlertTriangle size={13} />
+              {book.moderationStatus === "pending" ? "Pending admin review — not visible in the public library yet" : "Rejected by an admin — not visible in the public library"}
+            </div>
+          )}
 
           <h1 className="detail-title">{book.title}</h1>
           <p className="detail-author">by {book.author || "Unknown Author"}</p>

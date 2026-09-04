@@ -5,7 +5,7 @@ import { api } from "../api";
 import { HorizontalShelf, ContinueReadingShelf, BookCardItem } from "../components/shelves";
 import { getReadingList, loadMergedReadingList } from "../lib/progress";
 
-// ── PAGE 2: MY COLLECTION (GOOGLE PLAY BOOKS STYLE) ──────────────────────────
+// ── MY COLLECTION ──────────────────────────────────────────────────────────
 export function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }) {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
@@ -111,7 +111,7 @@ export function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuper
         </div>
       </div>
 
-      {/* GOOGLE PLAY BOOKS STYLE TABS */}
+      {/* VIEW TABS */}
       <div className="gplay-tabs-row">
         <button
           className={`gplay-tab-btn ${activeTab === "all" ? "active" : ""}`}

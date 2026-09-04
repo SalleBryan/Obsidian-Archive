@@ -4,7 +4,7 @@ import { Loader2, Save, User, LogIn, Shield, CheckCheck, AlertTriangle, Trash2 }
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 
-// ── PAGE 8: USER PROFILE PAGE ────────────────────────────────────────────────
+// ── USER PROFILE ───────────────────────────────────────────────────────────────
 export function UserProfilePage({ currentUser, onOpenAuth, isSuperAdmin }) {
   const navigate = useNavigate();
   const { handleDeleteAccount } = useAuth();
