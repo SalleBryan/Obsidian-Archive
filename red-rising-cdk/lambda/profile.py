@@ -51,7 +51,16 @@ def lambda_handler(event, context):
                 ReturnValues="ALL_NEW"
             )
             return respond(200, resp.get('Attributes', {}))
-            
+
+        elif method == 'DELETE':
+            # Self-service account deletion: removes this user's profile row.
+            # The frontend calls this while the JWT is still valid, then calls
+            # Amplify's deleteUser() to remove the Cognito account itself —
+            # that call invalidates the token, so profile cleanup has to
+            # happen here first, not after.
+            profiles_table.delete_item(Key={'userId': user_id})
+            return respond(200, {"message": "Profile deleted"})
+
         return respond(405, {"error": "Method not allowed"})
         
     except Exception as e:

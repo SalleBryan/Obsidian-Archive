@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Users, BookOpen, FileQuestion, ShieldAlert, Trash2, Ban, CheckCircle2, ArrowLeft, Pencil, Plus, X, Eye, EyeOff, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Users, BookOpen, FileQuestion, ShieldAlert, Trash2, Ban, CheckCircle2, ArrowLeft, Pencil, Plus, X, Eye, EyeOff, Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { ADMIN_STYLES } from "../adminStyles";
@@ -48,7 +48,57 @@ function useTableControls(items, searchFields, pageSize = PAGE_SIZE) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  return { search, setSearch, page, setPage, totalPages, paged, filteredCount: filtered.length };
+  return { search, setSearch, page, setPage, totalPages, paged, filtered, filteredCount: filtered.length };
+}
+
+// ── Bulk row selection, shared across all three tabs ────────────────────────
+function useSelection() {
+  const [selected, setSelected] = useState(() => new Set());
+  const toggleOne = (id) => setSelected(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const toggleAll = (ids) => setSelected(prev =>
+    ids.every(id => prev.has(id)) ? new Set() : new Set(ids)
+  );
+  const clear = () => setSelected(new Set());
+  return { selected, toggleOne, toggleAll, clear };
+}
+
+// Exports the full filtered list (not just the current page) as a CSV download.
+function downloadCSV(filename, rows, columns) {
+  const esc = (v) => {
+    const s = (v ?? "").toString();
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [
+    columns.map(c => esc(c.label)).join(","),
+    ...rows.map(r => columns.map(c => esc(c.get(r))).join(",")),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function BulkActionBar({ count, onDelete, onCancel, deleting }) {
+  return (
+    <div className="admin-bulk-bar">
+      <span>{count} selected</span>
+      <div style={{ display: "flex", gap: 8 }}>
+        <IconBtn color="#f87171" onClick={onDelete} disabled={deleting}>
+          {deleting ? <Loader2 size={12} className="spin" /> : <Trash2 size={12} />} Delete Selected
+        </IconBtn>
+        <IconBtn color="#a1a1aa" onClick={onCancel} disabled={deleting}>Cancel</IconBtn>
+      </div>
+    </div>
+  );
 }
 
 function SearchBar({ value, onChange, placeholder }) {
@@ -227,13 +277,15 @@ function DashboardTab({ stats, loading }) {
 }
 
 // ── USERS TAB ─────────────────────────────────────────────────────────────────
-const USER_COLS = "1fr 100px 110px 150px";
+const USER_COLS = "28px 1fr 100px 110px 150px";
 
 function UsersTab() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [modal, setModal] = useState(null); // "create" | user object (edit) | null
+  const { selected, toggleOne, toggleAll, clear } = useSelection();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -243,7 +295,7 @@ function UsersTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const { search, setSearch, page, setPage, totalPages, paged, filteredCount } = useTableControls(users, ["name", "email"]);
+  const { search, setSearch, page, setPage, totalPages, paged, filteredCount, filtered } = useTableControls(users, ["name", "email"]);
 
   const toggle = async (u) => {
     if (!window.confirm(`${u.enabled ? "Disable" : "Enable"} account for ${u.email}?`)) return;
@@ -265,22 +317,54 @@ function UsersTab() {
     setBusy(null);
   };
 
+  const bulkDelete = async () => {
+    const ids = [...selected];
+    if (!window.confirm(`Permanently delete ${ids.length} user${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      const { deleted } = await api.adminBatchDeleteUsers(ids);
+      setUsers(prev => prev.filter(x => !deleted.includes(x.userId)));
+      clear();
+    } catch (e) { alert(e.message); }
+    setBulkDeleting(false);
+  };
+
+  const exportCSV = () => downloadCSV("obsidian-users.csv", filtered, [
+    { label: "Name", get: u => u.name },
+    { label: "Email", get: u => u.email },
+    { label: "Status", get: u => u.enabled ? "Active" : "Disabled" },
+    { label: "Joined", get: u => u.createdAt },
+  ]);
+
   if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><Loader2 size={32} color="#ffcd5b" className="spin" /></div>;
 
   return (
     <div>
-      <div className="admin-toolbar">
-        <SearchBar value={search} onChange={setSearch} placeholder="Search by name or email…" />
-        <button className="btn btn-primary admin-add-btn" onClick={() => setModal("create")}><Plus size={14} /> Add User</button>
-      </div>
+      {selected.size > 0 ? (
+        <BulkActionBar count={selected.size} onDelete={bulkDelete} onCancel={clear} deleting={bulkDeleting} />
+      ) : (
+        <div className="admin-toolbar">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search by name or email…" />
+          <div className="admin-toolbar-actions">
+            <IconBtn color="#a1a1aa" onClick={exportCSV}><Download size={12} /> Export CSV</IconBtn>
+            <button className="btn btn-primary admin-add-btn" onClick={() => setModal("create")}><Plus size={14} /> Add User</button>
+          </div>
+        </div>
+      )}
 
       <div className="admin-table-card">
         <div className="admin-thead" style={{ gridTemplateColumns: USER_COLS }}>
+          <span className="admin-thead-check">
+            <input type="checkbox" checked={paged.length > 0 && paged.every(u => selected.has(u.userId))} onChange={() => toggleAll(paged.map(u => u.userId))} />
+          </span>
           <span>Name / Email</span><span>Status</span><span>Joined</span><span className="admin-th-right">Actions</span>
         </div>
         {paged.length === 0 && <div className="admin-empty">No users match your search.</div>}
         {paged.map((u) => (
           <div key={u.userId} className="admin-row" style={{ gridTemplateColumns: USER_COLS }}>
+            <span className="admin-row-check">
+              <input type="checkbox" checked={selected.has(u.userId)} onChange={() => toggleOne(u.userId)} />
+            </span>
             <div>
               <div className="admin-row-title">{u.name || "—"}</div>
               <div className="admin-row-sub">{u.email}</div>
@@ -329,13 +413,15 @@ function UsersTab() {
 }
 
 // ── BOOKS TAB ─────────────────────────────────────────────────────────────────
-const BOOK_COLS = "1fr 90px 70px 100px";
+const BOOK_COLS = "28px 1fr 90px 70px 100px";
 
 function BooksTab() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [modal, setModal] = useState(null);
+  const { selected, toggleOne, toggleAll, clear } = useSelection();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -345,7 +431,7 @@ function BooksTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const { search, setSearch, page, setPage, totalPages, paged, filteredCount } = useTableControls(books, ["title", "author"]);
+  const { search, setSearch, page, setPage, totalPages, paged, filteredCount, filtered } = useTableControls(books, ["title", "author"]);
 
   const del = async (b) => {
     if (!window.confirm(`Permanently delete "${b.title}"? This cannot be undone.`)) return;
@@ -356,6 +442,27 @@ function BooksTab() {
     } catch (e) { alert(e.message); }
     setBusy(null);
   };
+
+  const bulkDelete = async () => {
+    const ids = [...selected];
+    if (!window.confirm(`Permanently delete ${ids.length} book${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      const { deleted } = await api.adminBatchDeleteBooks(ids);
+      setBooks(prev => prev.filter(x => !deleted.includes(x.bookId)));
+      clear();
+    } catch (e) { alert(e.message); }
+    setBulkDeleting(false);
+  };
+
+  const exportCSV = () => downloadCSV("obsidian-books.csv", filtered, [
+    { label: "Title", get: b => b.title },
+    { label: "Author", get: b => b.author },
+    { label: "Category", get: b => b.category },
+    { label: "Visibility", get: b => b.visibility },
+    { label: "Type", get: b => b.fileType },
+    { label: "Uploader Email", get: b => b.ownerEmail },
+  ]);
 
   const bookFields = [
     { key: "title", label: "Title", required: true },
@@ -369,21 +476,34 @@ function BooksTab() {
 
   return (
     <div>
-      <div className="admin-toolbar">
-        <SearchBar value={search} onChange={setSearch} placeholder="Search by title or author…" />
-        <button className="btn btn-primary admin-add-btn" onClick={() => setModal("create")}><Plus size={14} /> Add Book</button>
-      </div>
+      {selected.size > 0 ? (
+        <BulkActionBar count={selected.size} onDelete={bulkDelete} onCancel={clear} deleting={bulkDeleting} />
+      ) : (
+        <div className="admin-toolbar">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search by title or author…" />
+          <div className="admin-toolbar-actions">
+            <IconBtn color="#a1a1aa" onClick={exportCSV}><Download size={12} /> Export CSV</IconBtn>
+            <button className="btn btn-primary admin-add-btn" onClick={() => setModal("create")}><Plus size={14} /> Add Book</button>
+          </div>
+        </div>
+      )}
 
       <div className="admin-table-card">
         <div className="admin-thead" style={{ gridTemplateColumns: BOOK_COLS }}>
+          <span className="admin-thead-check">
+            <input type="checkbox" checked={paged.length > 0 && paged.every(b => selected.has(b.bookId))} onChange={() => toggleAll(paged.map(b => b.bookId))} />
+          </span>
           <span>Title / Author</span><span>Visibility</span><span>Type</span><span className="admin-th-right">Actions</span>
         </div>
         {paged.length === 0 && <div className="admin-empty">No books match your search.</div>}
         {paged.map((b) => (
           <div key={b.bookId} className="admin-row" style={{ gridTemplateColumns: BOOK_COLS }}>
+            <span className="admin-row-check">
+              <input type="checkbox" checked={selected.has(b.bookId)} onChange={() => toggleOne(b.bookId)} />
+            </span>
             <div>
               <div className="admin-row-title">{b.title}</div>
-              <div className="admin-row-sub">by {b.author || "Unknown"}</div>
+              <div className="admin-row-sub">by {b.author || "Unknown"}{b.ownerEmail ? ` · uploaded by ${b.ownerEmail}` : ""}</div>
             </div>
             <Badge color={b.visibility === "public" ? "#60a5fa" : "#a78bfa"}>{b.visibility === "public" ? "Public" : "Private"}</Badge>
             <Badge color="#ffcd5b">{(b.fileType || "—").toUpperCase()}</Badge>
@@ -422,13 +542,15 @@ function BooksTab() {
 }
 
 // ── REQUESTS TAB ─────────────────────────────────────────────────────────────
-const REQUEST_COLS = "1fr 100px 110px 100px";
+const REQUEST_COLS = "28px 1fr 100px 110px 100px";
 
 function RequestsTab() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [modal, setModal] = useState(null);
+  const { selected, toggleOne, toggleAll, clear } = useSelection();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -438,7 +560,7 @@ function RequestsTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const { search, setSearch, page, setPage, totalPages, paged, filteredCount } = useTableControls(requests, ["title", "requesterName", "author"]);
+  const { search, setSearch, page, setPage, totalPages, paged, filteredCount, filtered } = useTableControls(requests, ["title", "requesterName", "author"]);
 
   const del = async (r) => {
     if (!window.confirm(`Delete request "${r.title}"?`)) return;
@@ -449,6 +571,26 @@ function RequestsTab() {
     } catch (e) { alert(e.message); }
     setBusy(null);
   };
+
+  const bulkDelete = async () => {
+    const ids = [...selected];
+    if (!window.confirm(`Delete ${ids.length} request${ids.length !== 1 ? "s" : ""}?`)) return;
+    setBulkDeleting(true);
+    try {
+      const { deleted } = await api.adminBatchDeleteRequests(ids);
+      setRequests(prev => prev.filter(x => !deleted.includes(x.requestId)));
+      clear();
+    } catch (e) { alert(e.message); }
+    setBulkDeleting(false);
+  };
+
+  const exportCSV = () => downloadCSV("obsidian-requests.csv", filtered, [
+    { label: "Title", get: r => r.title },
+    { label: "Author", get: r => r.author },
+    { label: "Requester", get: r => r.requesterName },
+    { label: "Status", get: r => r.status },
+    { label: "Created", get: r => r.createdAt },
+  ]);
 
   const requestFields = [
     { key: "title", label: "Title", required: true },
@@ -461,18 +603,31 @@ function RequestsTab() {
 
   return (
     <div>
-      <div className="admin-toolbar">
-        <SearchBar value={search} onChange={setSearch} placeholder="Search by title or requester…" />
-        <button className="btn btn-primary admin-add-btn" onClick={() => setModal("create")}><Plus size={14} /> Add Request</button>
-      </div>
+      {selected.size > 0 ? (
+        <BulkActionBar count={selected.size} onDelete={bulkDelete} onCancel={clear} deleting={bulkDeleting} />
+      ) : (
+        <div className="admin-toolbar">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search by title or requester…" />
+          <div className="admin-toolbar-actions">
+            <IconBtn color="#a1a1aa" onClick={exportCSV}><Download size={12} /> Export CSV</IconBtn>
+            <button className="btn btn-primary admin-add-btn" onClick={() => setModal("create")}><Plus size={14} /> Add Request</button>
+          </div>
+        </div>
+      )}
 
       <div className="admin-table-card">
         <div className="admin-thead" style={{ gridTemplateColumns: REQUEST_COLS }}>
+          <span className="admin-thead-check">
+            <input type="checkbox" checked={paged.length > 0 && paged.every(r => selected.has(r.requestId))} onChange={() => toggleAll(paged.map(r => r.requestId))} />
+          </span>
           <span>Title / Requester</span><span>Status</span><span>Date</span><span className="admin-th-right">Actions</span>
         </div>
         {paged.length === 0 && <div className="admin-empty">No requests match your search.</div>}
         {paged.map((r) => (
           <div key={r.requestId} className="admin-row" style={{ gridTemplateColumns: REQUEST_COLS }}>
+            <span className="admin-row-check">
+              <input type="checkbox" checked={selected.has(r.requestId)} onChange={() => toggleOne(r.requestId)} />
+            </span>
             <div>
               <div className="admin-row-title">{r.title}</div>
               <div className="admin-row-sub">Requested by {r.requesterName || "Unknown"}</div>

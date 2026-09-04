@@ -9,9 +9,11 @@ import {
   signInWithRedirect,
   resetPassword,
   confirmResetPassword,
+  deleteUser,
 } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import { SUPER_ADMIN_EMAILS, checkIsSuperAdmin } from "../config";
+import { api } from "../api";
 
 const AuthContext = createContext(null);
 
@@ -204,6 +206,15 @@ export function AuthProvider({ children }) {
     setCurrentUser(null);
   };
 
+  const handleDeleteAccount = async () => {
+    // Profile row must be removed BEFORE deleteUser() — that call invalidates
+    // the current JWT immediately, so any authenticated backend call after it
+    // would fail. Cognito account deletion itself signs the user out.
+    try { await api.deleteProfile(); } catch {}
+    await deleteUser();
+    setCurrentUser(null);
+  };
+
   const value = {
     currentUser,
     authChecked,
@@ -223,7 +234,8 @@ export function AuthProvider({ children }) {
     handleGoogleSSO,
     handleForgotPassword,
     handleConfirmReset,
-    handleSignOut
+    handleSignOut,
+    handleDeleteAccount
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
