@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { api } from "../api";
-import { CATEGORIES } from "../constants";
+import { CATEGORIES } from "../config/constants";
 
-// ── EDIT BOOK ──────────────────────────────────────────────────────────────────
 export function EditBookPage({ currentUser, isSuperAdmin }) {
   const { bookId } = useParams();
   const navigate = useNavigate();

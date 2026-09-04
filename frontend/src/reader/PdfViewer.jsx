@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { recordProgress } from "../lib/progress";
 
-// ── PDF VIEWER (PDF.js canvas, two-page desktop spread, swipe on mobile) ─────
 export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
   const containerRef = useRef(null);
   const pdfRef       = useRef(null);   // loaded PDF document
@@ -35,7 +34,6 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // ── Load PDF.js lazily from the npm package ──────────────────────────────
   useEffect(() => {
     let isMounted = true;
     const load = async () => {
@@ -76,7 +74,6 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
     return () => { isMounted = false; };
   }, [readUrl]);
 
-  // ── Render page(s) whenever pageNum, twoPage, or theme changes ───────────
   useEffect(() => {
     if (!pdfRef.current || loading) return;
     const pdf = pdfRef.current;
@@ -130,7 +127,6 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNum, twoPage, theme, loading]);
 
-  // ── Keyboard navigation ──────────────────────────────────────────────────
   useEffect(() => {
     const handleKey = (e) => {
       const step = twoPage ? 2 : 1;
@@ -146,7 +142,6 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [twoPage, numPages]);
 
-  // ── Persist page + progress for "continue where left off" / library shelf ──
   useEffect(() => {
     if (loading || !numPages) return;
     try { localStorage.setItem(pageKey, String(pageNum)); } catch {}
@@ -155,7 +150,6 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNum, numPages, loading]);
 
-  // ── Swipe navigation (mobile / tablet) ──────────────────────────────────
   const onTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
@@ -179,7 +173,6 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      {/* ── Reading stage ── */}
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: "8px 0", overflow: "hidden", position: "relative" }}>
 
         {/* Prev arrow — hidden on mobile (use swipe) */}
@@ -230,7 +223,6 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
         )}
       </div>
 
-      {/* ── Bottom bar: slider + page counter ── */}
       {!loading && numPages > 0 && (
         <div style={{ height: 44, background: panelBg, display: "flex", alignItems: "center", gap: 12, padding: "0 16px", flexShrink: 0, borderTop: "1px solid rgba(128,128,128,0.15)" }}>
           <button onClick={prevPage} disabled={pageNum <= 1} style={{ background: "transparent", border: "none", color: panelFg, cursor: pageNum <= 1 ? "not-allowed" : "pointer", opacity: pageNum <= 1 ? 0.4 : 1, display: "flex", alignItems: "center", padding: 0 }}>

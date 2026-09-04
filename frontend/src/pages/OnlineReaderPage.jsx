@@ -7,7 +7,6 @@ import { hydrateBookPosition } from "../lib/progress";
 import { EpubViewer } from "../reader/EpubViewer";
 import { PdfViewer } from "../reader/PdfViewer";
 
-// ── IN-BROWSER ONLINE BOOK READER ─────────────────────────────────────────────
 export function OnlineReaderPage({ currentUser, authChecked }) {
   const { bookId } = useParams();
   const navigate = useNavigate();
@@ -98,7 +97,6 @@ export function OnlineReaderPage({ currentUser, authChecked }) {
 
   return (
     <div className={`reader-shell reader-theme-${theme}`} style={{ height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      {/* ── READER HEADER ── */}
       <header
         className="reader-header"
         style={{ flexShrink: 0, background: hdrBg, borderBottom: `1px solid ${hdrBdr}`, color: hdrFg, backdropFilter: "blur(16px)", position: "relative", zIndex: 100 }}
@@ -202,7 +200,6 @@ export function OnlineReaderPage({ currentUser, authChecked }) {
         </div>
       </header>
 
-      {/* ── READER BODY ── */}
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         {isPdf ? (
           <PdfViewer

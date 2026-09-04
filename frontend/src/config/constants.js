@@ -1,4 +1,3 @@
-// ── THEME CONSTANTS ───────────────────────────────────────────────────────────
 export const CATEGORIES = ["Fiction", "Sci-Fi", "Fantasy", "Dystopian", "Thriller", "Mystery", "Romance", "Horror", "Historical Fiction", "Young Adult", "Non-Fiction", "Biography", "Education", "Uncategorized"];
 
 export const CAT_COLORS = {

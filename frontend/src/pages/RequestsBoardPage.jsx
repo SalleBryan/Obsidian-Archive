@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, X, Loader2, MessageSquarePlus, ArrowBigUp } from "lucide-react";
 import { api } from "../api";
 
-// ── BOOK REQUESTS ─────────────────────────────────────────────────────────────
 export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);

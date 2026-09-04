@@ -2,10 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Loader2, Globe, Sparkles, Layers } from "lucide-react";
 import { api } from "../api";
-import { BookCoverShelfItem, HorizontalShelf, BookCardItem } from "../components/shelves";
-import { CATEGORIES } from "../constants";
+import { BookCoverShelfItem, HorizontalShelf, BookCardItem } from "../components/Shelves";
+import { CATEGORIES } from "../config/constants";
 
-// ── PUBLIC LIBRARY ────────────────────────────────────────────────────────────
 export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }) {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);

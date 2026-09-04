@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Pencil, Trash2, ArrowLeft, BookOpen, Library, Loader2, AlertTriangle, Layers } from "lucide-react";
 import { api } from "../api";
-import { getCatColor } from "../constants";
+import { getCatColor } from "../config/constants";
 
-// ── BOOK DETAIL — owner/super-admin get edit & delete controls ────────────────
 export function BookDetailPage({ currentUser, onOpenAuth, isSuperAdmin, authChecked }) {
   const { bookId } = useParams();
   const navigate = useNavigate();

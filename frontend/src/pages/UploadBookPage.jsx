@@ -2,9 +2,8 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Library, Loader2, Save, UploadCloud, Lock, LogIn, FileText } from "lucide-react";
 import { api } from "../api";
-import { CATEGORIES } from "../constants";
+import { CATEGORIES } from "../config/constants";
 
-// ── UPLOAD BOOK ────────────────────────────────────────────────────────────────
 export function UploadBookPage({ currentUser, onOpenAuth }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
