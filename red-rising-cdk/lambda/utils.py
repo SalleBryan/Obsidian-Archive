@@ -1,4 +1,5 @@
 import json
+import os
 import base64
 
 CORS_HEADERS = {
@@ -8,8 +9,10 @@ CORS_HEADERS = {
     "Content-Type": "application/json"
 }
 
+# Injected by CDK from frontend/src/admin-config.json — single source of
+# truth shared with the frontend, so the two allowlists can't drift apart.
 SUPER_ADMIN_EMAILS = [
-    'bryanjakevita@gmail.com'
+    e.strip().lower() for e in os.environ.get('SUPER_ADMIN_EMAILS', '').split(',') if e.strip()
 ]
 
 def respond(status_code, body):

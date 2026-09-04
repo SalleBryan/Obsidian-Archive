@@ -1,9 +1,15 @@
+import os
 import aws_cdk as cdk
 from red_rising_cdk.data_stack import ObsidianDataStack
 from red_rising_cdk.api_stack import ObsidianApiStack
 
 app = cdk.App()
-env = cdk.Environment(account="340752829171", region="us-east-1") #sensitive
+# CDK_DEFAULT_ACCOUNT / CDK_DEFAULT_REGION are populated automatically from your
+# active AWS CLI credentials at synth time — no account ID committed to source.
+env = cdk.Environment(
+    account=os.environ.get("CDK_DEFAULT_ACCOUNT"),
+    region=os.environ.get("CDK_DEFAULT_REGION", "us-east-1"),
+)
 
 data_stack = ObsidianDataStack(app, "RedRisingCdkStack", env=env)
 

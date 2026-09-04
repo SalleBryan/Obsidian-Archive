@@ -1,4 +1,5 @@
 import os
+import json
 from aws_cdk import (
     Stack,
     Duration,
@@ -10,6 +11,13 @@ from aws_cdk import (
     aws_iam as iam,
 )
 from constructs import Construct
+
+# Single source of truth for the super-admin allowlist, shared with the
+# frontend (frontend/src/admin-config.json — same file, read at build time
+# there and at deploy time here) so the two can never silently drift apart.
+_ADMIN_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "src", "admin-config.json")
+with open(_ADMIN_CONFIG_PATH) as _f:
+    _SUPER_ADMIN_EMAILS = ",".join(json.load(_f)["superAdminEmails"])
 
 class ObsidianApiStack(Stack):
 
@@ -40,6 +48,7 @@ class ObsidianApiStack(Stack):
             "COVERS_BUCKET": covers_bucket.bucket_name,
             "FILES_BUCKET": files_bucket.bucket_name,
             "PROGRESS_TABLE": progress_table.table_name,
+            "SUPER_ADMIN_EMAILS": _SUPER_ADMIN_EMAILS,
         }
 
         # ── 1. LAMBDA FUNCTIONS ──

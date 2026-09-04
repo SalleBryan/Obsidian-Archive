@@ -27,6 +27,11 @@ __pycache__/
 !.env.example
 
 # =========================
+# Claude Code local config
+# =========================
+.claude/
+
+# =========================
 # OS & Editor Files
 # =========================
 .DS_Store

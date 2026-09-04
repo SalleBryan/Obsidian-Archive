@@ -3,7 +3,6 @@ from aws_cdk import (
     Stack,
     Duration,
     RemovalPolicy,
-    SecretValue,
     CfnOutput,
     aws_dynamodb as dynamodb,
     aws_sqs as sqs,
@@ -13,6 +12,11 @@ from aws_cdk import (
     aws_s3 as s3,
     aws_cognito as cognito,
     aws_iam as iam,
+    aws_secretsmanager as secretsmanager,
+    aws_cloudwatch as cloudwatch,
+    aws_cloudwatch_actions as cw_actions,
+    aws_sns as sns,
+    aws_sns_subscriptions as sns_subs,
 )
 from constructs import Construct
 
@@ -87,18 +91,25 @@ class ObsidianDataStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
-        # Google Identity Provider (activated if env vars are present, or via Console)
+        # Google Identity Provider — the Client ID is not sensitive (it's public
+        # by design, visible in every OAuth redirect URL), so it stays a plain
+        # env var. The Client Secret is genuinely sensitive and is pulled from
+        # Secrets Manager instead of ever being typed on the command line.
+        # Create it once with:
+        #   aws secretsmanager create-secret --name obsidian/google-client-secret --secret-string "<your-secret>"
         google_client_id = os.environ.get("GOOGLE_CLIENT_ID")
-        google_client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
         supported_idps = [cognito.UserPoolClientIdentityProvider.COGNITO]
 
         google_idp = None
-        if google_client_id and google_client_secret:
+        if google_client_id:
+            google_client_secret_ref = secretsmanager.Secret.from_secret_name_v2(
+                self, "GoogleClientSecretRef", "obsidian/google-client-secret"
+            )
             google_idp = cognito.UserPoolIdentityProviderGoogle(
                 self, "GoogleIdP",
                 user_pool=user_pool,
                 client_id=google_client_id,
-                client_secret_value=SecretValue.unsafe_plain_text(google_client_secret),
+                client_secret_value=google_client_secret_ref.secret_value,
                 attribute_mapping=cognito.AttributeMapping(
                     email=cognito.ProviderAttribute.GOOGLE_EMAIL,
                     fullname=cognito.ProviderAttribute.GOOGLE_NAME,
@@ -247,6 +258,28 @@ class ObsidianDataStack(Stack):
                 queue=dlq,
             ),
         )
+
+        # Alert on any message landing in the DLQ — a message only gets here after
+        # consumer_fn fails on it 3 times, which means a write silently never
+        # happened. Without this alarm that failure is invisible unless someone
+        # happens to check the SQS console.
+        dlq_alert_topic = sns.Topic(self, "ObsidianDlqAlertTopic", topic_name="obsidian-dlq-alerts")
+        dlq_alert_topic.add_subscription(sns_subs.EmailSubscription("bryanjakevita@gmail.com"))
+
+        dlq_messages_alarm = cloudwatch.Alarm(
+            self, "ObsidianDlqAlarm",
+            alarm_name="obsidian-dlq-has-messages",
+            alarm_description="A write operation failed 3 times and landed in the dead letter queue.",
+            metric=dlq.metric_approximate_number_of_messages_visible(
+                period=Duration.minutes(5),
+                statistic="Maximum",
+            ),
+            threshold=1,
+            evaluation_periods=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+        )
+        dlq_messages_alarm.add_alarm_action(cw_actions.SnsAction(dlq_alert_topic))
 
         # ══════════════════════════════════════════════════════════════════════
         # 4. S3 — Covers bucket (public) + Files bucket (private)
