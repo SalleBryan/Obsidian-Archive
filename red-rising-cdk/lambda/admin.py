@@ -170,15 +170,21 @@ def toggle_user(user_id, disable):
 
 
 # ── BOOKS ──────────────────────────────────────────────────────────────────
+# Hard cap on admin list scans — the admin panel loads a tab's full list once
+# and does search/pagination client-side, which is the right call at this
+# table size. This cap just stops a single Lambda call from ballooning in
+# time/memory if the archive ever grows very large before that gets revisited.
+_MAX_SCAN_ITEMS = 2000
+
 def list_all_books():
     items = []
     resp = books_table.scan() if books_table else {"Items": []}
     items.extend(resp.get("Items", []))
-    while "LastEvaluatedKey" in resp:
+    while "LastEvaluatedKey" in resp and len(items) < _MAX_SCAN_ITEMS:
         resp = books_table.scan(ExclusiveStartKey=resp["LastEvaluatedKey"])
         items.extend(resp.get("Items", []))
     safe = [{k: v for k, v in b.items() if k != "fileKey"} for b in items]
-    return respond(200, {"books": safe})
+    return respond(200, {"books": safe, "truncated": "LastEvaluatedKey" in resp})
 
 
 def create_book_admin(body, auth):
@@ -253,10 +259,10 @@ def list_all_requests():
     items = []
     resp = requests_table.scan() if requests_table else {"Items": []}
     items.extend(resp.get("Items", []))
-    while "LastEvaluatedKey" in resp:
+    while "LastEvaluatedKey" in resp and len(items) < _MAX_SCAN_ITEMS:
         resp = requests_table.scan(ExclusiveStartKey=resp["LastEvaluatedKey"])
         items.extend(resp.get("Items", []))
-    return respond(200, {"requests": items})
+    return respond(200, {"requests": items, "truncated": "LastEvaluatedKey" in resp})
 
 
 def create_request_admin(body, auth):

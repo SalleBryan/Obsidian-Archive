@@ -11,12 +11,20 @@ env = cdk.Environment(
     region=os.environ.get("CDK_DEFAULT_REGION", "us-east-1"),
 )
 
-data_stack = ObsidianDataStack(app, "RedRisingCdkStack", env=env)
+# Defaults to "prod" so a plain `cdk deploy` behaves exactly as it always has —
+# same stack IDs, same physical resource names, touches nothing about the live
+# environment. Deploy an isolated dev copy alongside it with:
+#   cdk deploy --context stage=dev --all
+stage = app.node.try_get_context("stage") or "prod"
+stack_suffix = "" if stage == "prod" else f"-{stage}"
+
+data_stack = ObsidianDataStack(app, f"RedRisingCdkStack{stack_suffix}", stage=stage, env=env)
 
 ObsidianApiStack(
     app,
-    "ObsidianApiStack",
+    f"ObsidianApiStack{stack_suffix}",
     env=env,
+    stage=stage,
     user_pool=data_stack.user_pool,
     books_table=data_stack.books_table,
     profiles_table=data_stack.profiles_table,

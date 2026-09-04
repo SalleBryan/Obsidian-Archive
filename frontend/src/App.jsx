@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { api } from "./api";
 import { Sidebar } from "./components/Sidebar";
@@ -9,14 +10,27 @@ import { AuthModal } from "./components/AuthModal";
 import { BookDetailPage } from "./pages/BookDetailPage";
 import { EditBookPage } from "./pages/EditBookPage";
 import { MyCollectionPage } from "./pages/MyCollectionPage";
-import { OnlineReaderPage } from "./pages/OnlineReaderPage";
 import { PublicLibraryPage } from "./pages/PublicLibraryPage";
 import { RequestsBoardPage } from "./pages/RequestsBoardPage";
 import { UploadBookPage } from "./pages/UploadBookPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
-import { AdminPage } from "./pages/AdminPage";
 import { STYLES } from "./styles";
 import "./amplifyConfig";
+
+// Lazy-loaded: OnlineReaderPage pulls in epub.js + pdfjs-dist (the two
+// heaviest dependencies in the app, ~1.7MB combined). AdminPage is reachable
+// by only one person. Neither should be in the bundle every visitor downloads
+// just to browse the library — they're fetched only when actually navigated to.
+const OnlineReaderPage = lazy(() => import("./pages/OnlineReaderPage").then(m => ({ default: m.OnlineReaderPage })));
+const AdminPage = lazy(() => import("./pages/AdminPage").then(m => ({ default: m.AdminPage })));
+
+function RouteLoader() {
+  return (
+    <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f1115" }}>
+      <Loader2 size={36} color="#ffcd5b" className="spin" />
+    </div>
+  );
+}
 
 export default function App() {
   return (
@@ -64,9 +78,11 @@ function AppShell() {
     return (
       <>
         <style>{STYLES}</style>
-        <Routes>
-          <Route path="/admin" element={<AdminPage />} />
-        </Routes>
+        <Suspense fallback={<RouteLoader />}>
+          <Routes>
+            <Route path="/admin" element={<AdminPage />} />
+          </Routes>
+        </Suspense>
       </>
     );
   }
@@ -75,12 +91,14 @@ function AppShell() {
     return (
       <>
         <style>{STYLES}</style>
-        <Routes>
-          <Route
-            path="/read/:bookId"
-            element={<OnlineReaderPage currentUser={currentUser} authChecked={authChecked} />}
-          />
-        </Routes>
+        <Suspense fallback={<RouteLoader />}>
+          <Routes>
+            <Route
+              path="/read/:bookId"
+              element={<OnlineReaderPage currentUser={currentUser} authChecked={authChecked} />}
+            />
+          </Routes>
+        </Suspense>
       </>
     );
   }

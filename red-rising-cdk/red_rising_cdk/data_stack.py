@@ -23,15 +23,24 @@ from constructs import Construct
 
 class ObsidianDataStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, stage: str = "prod", **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        # Physical resource names stay exactly as they are today when stage is
+        # "prod" (the default) — nothing about the live stack changes. Passing
+        # stage="dev" suffixes every physical name so a second, fully isolated
+        # copy of this stack can be deployed side by side without colliding
+        # with production (S3 bucket names and the Cognito domain prefix must
+        # be globally unique, so this suffix is what makes that possible).
+        def n(base: str) -> str:
+            return base if stage == "prod" else f"{base}-{stage}"
 
         # ══════════════════════════════════════════════════════════════════════
         # 1. COGNITO — User Pool + Google Identity Provider
         # ══════════════════════════════════════════════════════════════════════
         user_pool = cognito.UserPool(
             self, "ObsidianUserPool",
-            user_pool_name="obsidian-archive-users",
+            user_pool_name=n("obsidian-archive-users"),
             self_sign_up_enabled=True,
             sign_in_aliases=cognito.SignInAliases(email=True),
             auto_verify=cognito.AutoVerifiedAttrs(email=True),
@@ -95,8 +104,10 @@ class ObsidianDataStack(Stack):
         # by design, visible in every OAuth redirect URL), so it stays a plain
         # env var. The Client Secret is genuinely sensitive and is pulled from
         # Secrets Manager instead of ever being typed on the command line.
-        # Create it once with:
+        # Create it once per stage with:
         #   aws secretsmanager create-secret --name obsidian/google-client-secret --secret-string "<your-secret>"
+        #   (or obsidian/google-client-secret-dev for a dev-stage deploy)
+        google_secret_name = n("obsidian/google-client-secret")
         google_client_id = os.environ.get("GOOGLE_CLIENT_ID")
         supported_idps = [cognito.UserPoolClientIdentityProvider.COGNITO]
 
@@ -112,7 +123,7 @@ class ObsidianDataStack(Stack):
             import boto3
             _secret_arn = boto3.client(
                 "secretsmanager", region_name=os.environ.get("CDK_DEFAULT_REGION", "us-east-1")
-            ).describe_secret(SecretId="obsidian/google-client-secret")["ARN"]
+            ).describe_secret(SecretId=google_secret_name)["ARN"]
             google_client_secret_ref = secretsmanager.Secret.from_secret_complete_arn(
                 self, "GoogleClientSecretRef", _secret_arn
             )
@@ -132,7 +143,7 @@ class ObsidianDataStack(Stack):
         user_pool_client = cognito.UserPoolClient(
             self, "ObsidianUserPoolClient",
             user_pool=user_pool,
-            user_pool_client_name="obsidian-archive-web-client",
+            user_pool_client_name=n("obsidian-archive-web-client"),
             supported_identity_providers=supported_idps,
             auth_flows=cognito.AuthFlow(
                 user_password=True,
@@ -162,7 +173,7 @@ class ObsidianDataStack(Stack):
         user_pool_domain = user_pool.add_domain(
             "ObsidianUserPoolDomain",
             cognito_domain=cognito.CognitoDomainOptions(
-                domain_prefix="obsidian-archive"
+                domain_prefix=n("obsidian-archive")
             ),
         )
 
@@ -171,7 +182,7 @@ class ObsidianDataStack(Stack):
         # ══════════════════════════════════════════════════════════════════════
         books_table = dynamodb.Table(
             self, "BooksTable",
-            table_name="obsidian-books",
+            table_name=n("obsidian-books"),
             partition_key=dynamodb.Attribute(
                 name="bookId",
                 type=dynamodb.AttributeType.STRING,
@@ -194,7 +205,7 @@ class ObsidianDataStack(Stack):
 
         profiles_table = dynamodb.Table(
             self, "ProfilesTable",
-            table_name="obsidian-profiles",
+            table_name=n("obsidian-profiles"),
             partition_key=dynamodb.Attribute(
                 name="userId",
                 type=dynamodb.AttributeType.STRING,
@@ -205,7 +216,7 @@ class ObsidianDataStack(Stack):
 
         requests_table = dynamodb.Table(
             self, "RequestsTable",
-            table_name="obsidian-requests",
+            table_name=n("obsidian-requests"),
             partition_key=dynamodb.Attribute(
                 name="requestId",
                 type=dynamodb.AttributeType.STRING,
@@ -222,7 +233,7 @@ class ObsidianDataStack(Stack):
 
         notifications_table = dynamodb.Table(
             self, "NotificationsTable",
-            table_name="obsidian-notifications",
+            table_name=n("obsidian-notifications"),
             partition_key=dynamodb.Attribute(
                 name="userId",
                 type=dynamodb.AttributeType.STRING,
@@ -238,7 +249,7 @@ class ObsidianDataStack(Stack):
         # Reading progress — one row per (userId, bookId) for cross-device "continue reading"
         progress_table = dynamodb.Table(
             self, "ProgressTable",
-            table_name="obsidian-progress",
+            table_name=n("obsidian-progress"),
             partition_key=dynamodb.Attribute(
                 name="userId",
                 type=dynamodb.AttributeType.STRING,
@@ -256,13 +267,13 @@ class ObsidianDataStack(Stack):
         # ══════════════════════════════════════════════════════════════════════
         dlq = sqs.Queue(
             self, "ObsidianDLQ",
-            queue_name="obsidian-dlq",
+            queue_name=n("obsidian-dlq"),
             retention_period=Duration.days(14),
         )
 
         queue = sqs.Queue(
             self, "ObsidianQueue",
-            queue_name="obsidian-queue",
+            queue_name=n("obsidian-queue"),
             visibility_timeout=Duration.seconds(60),
             dead_letter_queue=sqs.DeadLetterQueue(
                 max_receive_count=3,
@@ -274,12 +285,12 @@ class ObsidianDataStack(Stack):
         # consumer_fn fails on it 3 times, which means a write silently never
         # happened. Without this alarm that failure is invisible unless someone
         # happens to check the SQS console.
-        dlq_alert_topic = sns.Topic(self, "ObsidianDlqAlertTopic", topic_name="obsidian-dlq-alerts")
+        dlq_alert_topic = sns.Topic(self, "ObsidianDlqAlertTopic", topic_name=n("obsidian-dlq-alerts"))
         dlq_alert_topic.add_subscription(sns_subs.EmailSubscription("bryanjakevita@gmail.com"))
 
         dlq_messages_alarm = cloudwatch.Alarm(
             self, "ObsidianDlqAlarm",
-            alarm_name="obsidian-dlq-has-messages",
+            alarm_name=n("obsidian-dlq-has-messages"),
             alarm_description="A write operation failed 3 times and landed in the dead letter queue.",
             metric=dlq.metric_approximate_number_of_messages_visible(
                 period=Duration.minutes(5),
@@ -297,7 +308,7 @@ class ObsidianDataStack(Stack):
         # ══════════════════════════════════════════════════════════════════════
         covers_bucket = s3.Bucket(
             self, "CoversBucket",
-            bucket_name="obsidian-covers-12345",
+            bucket_name=n("obsidian-covers-12345"),
             cors=[s3.CorsRule(
                 allowed_methods=[
                     s3.HttpMethods.GET,
@@ -323,7 +334,7 @@ class ObsidianDataStack(Stack):
 
         files_bucket = s3.Bucket(
             self, "FilesBucket",
-            bucket_name="obsidian-files-12345",
+            bucket_name=n("obsidian-files-12345"),
             cors=[s3.CorsRule(
                 allowed_methods=[
                     s3.HttpMethods.GET,
@@ -364,7 +375,7 @@ class ObsidianDataStack(Stack):
 
         auth_trigger_fn = _lambda.Function(
             self, "AuthTriggerFn",
-            function_name="obsidian-auth-trigger",
+            function_name=n("obsidian-auth-trigger"),
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="auth_trigger.lambda_handler",
             code=shared_code,
