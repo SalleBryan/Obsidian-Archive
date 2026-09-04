@@ -127,7 +127,7 @@ export const STYLES = `
     font-size: 10px; font-weight: 800; color: #ffcd5b; text-transform: uppercase; letter-spacing: 0.08em;
   }
 
-  /* GOOGLE PLAY BOOKS STYLE MOBILE TOP SEARCH BAR */
+  /* MOBILE TOP SEARCH BAR */
   .mobile-search-pill-container {
     display: none;
     padding: 12px 16px 8px;
@@ -202,7 +202,7 @@ export const STYLES = `
     flex-shrink: 0;
   }
 
-  /* PROMO / BANNER STRIP (Like Play Books Prize Strip) */
+  /* PROMO / BANNER STRIP */
   .playbooks-banner {
     display: flex;
     align-items: center;
@@ -231,7 +231,7 @@ export const STYLES = `
     margin-left: 8px;
   }
 
-  /* GOOGLE PLAY BOOKS TEXT TABS */
+  /* PILL-STYLE TEXT TABS */
   .gplay-tabs-row {
     display: flex;
     gap: 24px;
@@ -270,7 +270,7 @@ export const STYLES = `
     border-radius: 999px;
   }
 
-  /* HORIZONTAL SHELF SECTIONS (Google Play Books Style) */
+  /* HORIZONTAL SHELF SECTIONS */
   .shelf-section {
     margin-bottom: 28px;
     width: 100%;
@@ -311,7 +311,7 @@ export const STYLES = `
   }
   .shelf-scroll-row::-webkit-scrollbar { display: none; }
 
-  /* SHELF BOOK ITEM (Google Play Books Item) */
+  /* SHELF BOOK ITEM */
   .book-shelf-item {
     flex-shrink: 0;
     width: 145px;
@@ -680,7 +680,7 @@ export const STYLES = `
   .policy-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a1a1aa; }
   .policy-item.valid { color: #4ADE80; font-weight: 600; }
 
-  /* GOOGLE PLAY BOOKS BOTTOM NAVIGATION BAR */
+  /* BOTTOM NAVIGATION BAR (MOBILE) */
   .gplay-bottom-nav {
     display: none;
     position: fixed;

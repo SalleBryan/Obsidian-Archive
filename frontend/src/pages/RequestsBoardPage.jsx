@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, X, Loader2, MessageSquarePlus } from "lucide-react";
+import { Plus, Trash2, X, Loader2, MessageSquarePlus, ArrowBigUp } from "lucide-react";
 import { api } from "../api";
 
-// ── PAGE 3: BOOK REQUESTS ────────────────────────────────────────────────────
+// ── BOOK REQUESTS ─────────────────────────────────────────────────────────────
 export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +19,25 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   };
 
   useEffect(() => { loadRequests(); }, []);
+
+  const handleUpvote = async (r) => {
+    if (!currentUser) { onOpenAuth("signin"); return; }
+    // Optimistic toggle — the write goes through SQS asynchronously, so
+    // waiting for the real response before updating the UI would feel laggy.
+    setRequests(prev => prev.map(x => x.requestId === r.requestId
+      ? { ...x, hasUpvoted: !x.hasUpvoted, upvoteCount: x.upvoteCount + (x.hasUpvoted ? -1 : 1) }
+      : x
+    ));
+    try {
+      await api.toggleUpvoteRequest(r.requestId);
+    } catch {
+      // Revert on failure
+      setRequests(prev => prev.map(x => x.requestId === r.requestId
+        ? { ...x, hasUpvoted: r.hasUpvoted, upvoteCount: r.upvoteCount }
+        : x
+      ));
+    }
+  };
 
   const handleCreateRequest = async (e) => {
     e.preventDefault();
@@ -64,13 +83,27 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 20 }}>
           {requests.map((r) => (
             <div key={r.requestId} className="editor-card glass-panel" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                <button
+                  onClick={() => handleUpvote(r)}
+                  title={currentUser ? (r.hasUpvoted ? "Remove upvote" : "Upvote this request") : "Sign in to upvote"}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0,
+                    width: 46, padding: "6px 0", borderRadius: 10, cursor: "pointer",
+                    border: `1px solid ${r.hasUpvoted ? "#ffcd5b" : "rgba(255,255,255,0.12)"}`,
+                    background: r.hasUpvoted ? "rgba(255,205,91,0.15)" : "transparent",
+                    color: r.hasUpvoted ? "#ffcd5b" : "#a1a1aa",
+                  }}
+                >
+                  <ArrowBigUp size={16} fill={r.hasUpvoted ? "#ffcd5b" : "none"} />
+                  <span style={{ fontSize: 12, fontWeight: 800 }}>{r.upvoteCount || 0}</span>
+                </button>
+                <div style={{ flex: 1 }}>
                   <h3 style={{ fontSize: 17, fontWeight: 800 }}>{r.title}</h3>
                   <p style={{ fontSize: 13, color: "#ffcd5b", marginTop: 2 }}>by {r.author || "Unknown"}</p>
                 </div>
                 <span style={{
-                  padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700,
+                  padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
                   background: r.status === "open" ? "rgba(255,205,91,0.15)" : "rgba(74,222,128,0.15)",
                   color: r.status === "open" ? "#ffcd5b" : "#4ADE80"
                 }}>

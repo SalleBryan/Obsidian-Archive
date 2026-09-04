@@ -7,11 +7,8 @@ from aws_cdk import (
     aws_dynamodb as dynamodb,
     aws_sqs as sqs,
     aws_lambda as _lambda,
-    aws_lambda_event_sources as lambda_events,
-    aws_apigateway as apigw,
     aws_s3 as s3,
     aws_cognito as cognito,
-    aws_iam as iam,
     aws_secretsmanager as secretsmanager,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cw_actions,
@@ -262,6 +259,33 @@ class ObsidianDataStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
+        # Admin action audit trail — who did what, and when. Low volume by
+        # nature (only admin actions), so a scan-and-sort read pattern is fine
+        # at this scale rather than a time-bucketed partition key.
+        audit_log_table = dynamodb.Table(
+            self, "AuditLogTable",
+            table_name=n("obsidian-audit-log"),
+            partition_key=dynamodb.Attribute(
+                name="logId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+
+        # Platform-wide banner — a single row (id="current") holding whatever
+        # the admin currently wants every visitor to see, or nothing.
+        announcement_table = dynamodb.Table(
+            self, "AnnouncementTable",
+            table_name=n("obsidian-announcement"),
+            partition_key=dynamodb.Attribute(
+                name="id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+
         # ══════════════════════════════════════════════════════════════════════
         # 3. SQS — Main queue + Dead Letter Queue
         # ══════════════════════════════════════════════════════════════════════
@@ -398,6 +422,8 @@ class ObsidianDataStack(Stack):
         self.requests_table = requests_table
         self.notifications_table = notifications_table
         self.progress_table = progress_table
+        self.audit_log_table = audit_log_table
+        self.announcement_table = announcement_table
         self.covers_bucket = covers_bucket
         self.files_bucket = files_bucket
         self.queue = queue

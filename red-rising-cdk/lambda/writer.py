@@ -8,7 +8,7 @@ QUEUE_URL = os.environ.get('QUEUE_URL')
 
 ALLOWED_OPERATIONS = [
     "CREATE_BOOK", "UPDATE_BOOK", "DELETE_BOOK", "BATCH_DELETE_BOOKS",
-    "CREATE_REQUEST", "FULFILL_REQUEST", "DELETE_REQUEST",
+    "CREATE_REQUEST", "FULFILL_REQUEST", "DELETE_REQUEST", "TOGGLE_UPVOTE_REQUEST",
     "MARK_NOTIFICATION_READ"
 ]
 
@@ -45,6 +45,8 @@ def lambda_handler(event, context):
             body['fulfilledBy'] = user_id
         elif operation == "DELETE_REQUEST":
             body['requesterId'] = user_id
+        elif operation == "TOGGLE_UPVOTE_REQUEST":
+            body['userId'] = user_id
         elif operation == "MARK_NOTIFICATION_READ":
             body['userId'] = user_id
 

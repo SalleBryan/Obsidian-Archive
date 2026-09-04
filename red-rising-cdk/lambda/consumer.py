@@ -25,43 +25,6 @@ def delete_s3_object(bucket, key):
     except Exception as e:
         print(f"Error deleting s3://{bucket}/{key}: {e}")
 
-def notify_matching_requesters(book_id, book_title, uploader_name, now):
-    """Auto-fulfill matching open requests and notify requesters."""
-    if not requests_table or not notifications_table or not book_title:
-        return
-    try:
-        # Scan open requests
-        resp = requests_table.scan(
-            FilterExpression="#s = :open",
-            ExpressionAttributeNames={"#s": "status"},
-            ExpressionAttributeValues={":open": "open"}
-        )
-        for req in resp.get('Items', []):
-            req_title = req.get('title', '').strip().lower()
-            if req_title and req_title == book_title.strip().lower():
-                # Fulfill request
-                requests_table.update_item(
-                    Key={'requestId': req['requestId']},
-                    UpdateExpression="SET #s = :s, fulfilledBy = :fb, fulfilledBookId = :fbi",
-                    ExpressionAttributeNames={'#s': 'status'},
-                    ExpressionAttributeValues={
-                        ':s': 'fulfilled',
-                        ':fb': uploader_name,
-                        ':fbi': book_id
-                    }
-                )
-                # Send in-app notification
-                notifications_table.put_item(Item={
-                    'userId': req['requesterId'],
-                    'notificationId': str(uuid.uuid4()),
-                    'title': 'Book Request Available!',
-                    'message': f'"{book_title}" requested by you was just uploaded by {uploader_name}!',
-                    'bookId': book_id,
-                    'isRead': False,
-                    'createdAt': now
-                })
-    except Exception as e:
-        print(f"Error notifying requesters: {e}")
 
 def process_message(body):
     operation = body.get('operation')
@@ -70,6 +33,7 @@ def process_message(body):
     
     if operation == "CREATE_BOOK":
         book_id = str(uuid.uuid4())
+        visibility = body.get('visibility', 'public')
         item = {
             'bookId': book_id,
             'ownerId': body.get('ownerId', ''),
@@ -78,7 +42,11 @@ def process_message(body):
             'category': body.get('category', 'Uncategorized'),   # kept for GSI backward compat
             'categories': body.get('categories') or [body.get('category', 'Uncategorized')],
             'description': body.get('description', ''),
-            'visibility': body.get('visibility', 'public'),
+            'visibility': visibility,
+            # Private books are only ever visible to their owner, so there's
+            # nothing to moderate. Public books wait for admin approval before
+            # they appear in the public library.
+            'moderationStatus': 'approved' if visibility == 'private' else 'pending',
             'createdAt': now,
             'updatedAt': now
         }
@@ -99,12 +67,10 @@ def process_message(body):
             item['fileSizeBytes'] = int(body['fileSizeBytes'])
 
         books_table.put_item(Item=item)
+        # Matching-request notifications fire on approval, not here — notifying
+        # a requester about a book that isn't even public yet (and might get
+        # rejected) would be misleading.
 
-        # If public book, check for matching open requests and notify
-        if item.get('visibility') == 'public':
-            uploader_name = body.get('uploaderName', 'A fellow reader')
-            notify_matching_requesters(book_id, item['title'], uploader_name, now)
-        
     elif operation == "UPDATE_BOOK":
         book_id = body.get('bookId')
         owner_id = body.get('ownerId')
@@ -230,6 +196,24 @@ def process_message(body):
             
         delete_s3_object(COVERS_BUCKET, req.get('coverKey'))
         requests_table.delete_item(Key={'requestId': req_id})
+
+    elif operation == "TOGGLE_UPVOTE_REQUEST":
+        req_id = body.get('requestId')
+        user_id = body.get('userId')
+        if not req_id or not user_id:
+            return
+        resp = requests_table.get_item(Key={'requestId': req_id})
+        req = resp.get('Item')
+        if not req:
+            return
+        # upvoterIds is a DynamoDB String Set — ADD/DELETE are atomic and
+        # naturally dedupe, so no read-modify-write race on concurrent toggles.
+        already_upvoted = user_id in (req.get('upvoterIds') or set())
+        requests_table.update_item(
+            Key={'requestId': req_id},
+            UpdateExpression=f"{'DELETE' if already_upvoted else 'ADD'} upvoterIds :u",
+            ExpressionAttributeValues={':u': {user_id}}
+        )
 
     elif operation == "MARK_NOTIFICATION_READ":
         notif_id = body.get('notificationId')

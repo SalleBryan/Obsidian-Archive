@@ -25,6 +25,13 @@ export function upsertReadingProgress(userId, entry) {
   } catch {}
 }
 
+// Both viewers call these two together on every position update — local
+// write for instant "Continue Reading" state, cloud sync for cross-device.
+export function recordProgress(userId, entry) {
+  upsertReadingProgress(userId, entry);
+  syncProgressToCloud(userId, entry);
+}
+
 // ── Cloud sync (only for signed-in users; "guest" stays local-only) ───────────
 const _syncTimers = {};
 

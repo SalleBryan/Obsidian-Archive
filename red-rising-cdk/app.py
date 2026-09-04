@@ -31,6 +31,8 @@ ObsidianApiStack(
     requests_table=data_stack.requests_table,
     notifications_table=data_stack.notifications_table,
     progress_table=data_stack.progress_table,
+    audit_log_table=data_stack.audit_log_table,
+    announcement_table=data_stack.announcement_table,
     covers_bucket=data_stack.covers_bucket,
     files_bucket=data_stack.files_bucket,
     queue=data_stack.queue,

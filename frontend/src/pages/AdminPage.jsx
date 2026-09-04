@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Users, BookOpen, FileQuestion, ShieldAlert, Trash2, Ban, CheckCircle2, ArrowLeft, Pencil, Plus, X, Eye, EyeOff, Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Loader2, Users, BookOpen, FileQuestion, ShieldAlert, Trash2, Ban, CheckCircle2, XCircle, ArrowLeft, Pencil, Plus, X, Eye, EyeOff, Search, ChevronLeft, ChevronRight, Download, Megaphone } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { ADMIN_STYLES } from "../adminStyles";
 
 // ── ADMIN PANEL — standalone page, separate from user-facing shell ────────────
 
-const TABS = ["Dashboard", "Users", "Books", "Requests"];
+const TABS = ["Dashboard", "Users", "Books", "Requests", "Audit Log"];
 const PAGE_SIZE = 8;
 
 function StatCard({ label, value, icon: Icon, accent = "#ffcd5b" }) {
@@ -263,15 +263,77 @@ function AccessDenied({ email }) {
 }
 
 // ── DASHBOARD TAB ─────────────────────────────────────────────────────────────
+function AnnouncementControl() {
+  const [current, setCurrent] = useState(null);
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    const data = await api.getAnnouncement();
+    setCurrent(data.active ? data : null);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const publish = async () => {
+    if (!message.trim()) return;
+    setSaving(true);
+    try { await api.adminSetAnnouncement(message.trim()); setMessage(""); await load(); }
+    catch (e) { alert(e.message); }
+    setSaving(false);
+  };
+
+  const clear = async () => {
+    setSaving(true);
+    try { await api.adminClearAnnouncement(); await load(); }
+    catch (e) { alert(e.message); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="admin-table-card" style={{ padding: 20, marginTop: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <Megaphone size={16} color="#ffcd5b" />
+        <span style={{ fontSize: 14, fontWeight: 800 }}>Platform Announcement</span>
+      </div>
+      {current ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, color: "#e4e4e7" }}>{current.message}</span>
+          <IconBtn color="#f87171" onClick={clear} disabled={saving}>
+            {saving ? <Loader2 size={12} className="spin" /> : "Clear"}
+          </IconBtn>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 10 }}>
+          <input
+            className="admin-field-input"
+            placeholder="Message shown to every visitor…"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <button className="btn btn-primary admin-add-btn" onClick={publish} disabled={saving || !message.trim()}>
+            {saving ? <Loader2 size={14} className="spin" /> : "Publish"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DashboardTab({ stats, loading }) {
   if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><Loader2 size={32} color="#ffcd5b" className="spin" /></div>;
   return (
-    <div className="admin-stats-row">
-      <StatCard label="Total Users" value={stats?.totalUsers} icon={Users} accent="#4ade80" />
-      <StatCard label="Total Books" value={stats?.totalBooks} icon={BookOpen} accent="#ffcd5b" />
-      <StatCard label="Public Books" value={stats?.publicBooks} icon={BookOpen} accent="#60a5fa" />
-      <StatCard label="Private Books" value={stats?.privateBooks} icon={BookOpen} accent="#f87171" />
-      <StatCard label="Total Requests" value={stats?.totalRequests} icon={FileQuestion} accent="#a78bfa" />
+    <div>
+      <div className="admin-stats-row">
+        <StatCard label="Total Users" value={stats?.totalUsers} icon={Users} accent="#4ade80" />
+        <StatCard label="Total Books" value={stats?.totalBooks} icon={BookOpen} accent="#ffcd5b" />
+        <StatCard label="Public Books" value={stats?.publicBooks} icon={BookOpen} accent="#60a5fa" />
+        <StatCard label="Private Books" value={stats?.privateBooks} icon={BookOpen} accent="#f87171" />
+        <StatCard label="Pending Review" value={stats?.pendingBooks} icon={CheckCircle2} accent="#ffcd5b" />
+        <StatCard label="Total Requests" value={stats?.totalRequests} icon={FileQuestion} accent="#a78bfa" />
+      </div>
+      <AnnouncementControl />
     </div>
   );
 }
@@ -413,7 +475,9 @@ function UsersTab() {
 }
 
 // ── BOOKS TAB ─────────────────────────────────────────────────────────────────
-const BOOK_COLS = "28px 1fr 90px 70px 100px";
+const BOOK_COLS = "28px 1fr 90px 95px 70px 140px";
+
+const MODERATION_COLORS = { pending: "#ffcd5b", approved: "#4ade80", rejected: "#f87171" };
 
 function BooksTab() {
   const [books, setBooks] = useState([]);
@@ -455,11 +519,31 @@ function BooksTab() {
     setBulkDeleting(false);
   };
 
+  const approve = async (b) => {
+    setBusy(b.bookId);
+    try {
+      await api.adminApproveBook(b.bookId);
+      setBooks(prev => prev.map(x => x.bookId === b.bookId ? { ...x, moderationStatus: "approved" } : x));
+    } catch (e) { alert(e.message); }
+    setBusy(null);
+  };
+
+  const reject = async (b) => {
+    if (!window.confirm(`Reject "${b.title}"? It will stay hidden from the public library.`)) return;
+    setBusy(b.bookId);
+    try {
+      await api.adminRejectBook(b.bookId);
+      setBooks(prev => prev.map(x => x.bookId === b.bookId ? { ...x, moderationStatus: "rejected" } : x));
+    } catch (e) { alert(e.message); }
+    setBusy(null);
+  };
+
   const exportCSV = () => downloadCSV("obsidian-books.csv", filtered, [
     { label: "Title", get: b => b.title },
     { label: "Author", get: b => b.author },
     { label: "Category", get: b => b.category },
     { label: "Visibility", get: b => b.visibility },
+    { label: "Moderation", get: b => b.moderationStatus || "approved" },
     { label: "Type", get: b => b.fileType },
     { label: "Uploader Email", get: b => b.ownerEmail },
   ]);
@@ -493,10 +577,12 @@ function BooksTab() {
           <span className="admin-thead-check">
             <input type="checkbox" checked={paged.length > 0 && paged.every(b => selected.has(b.bookId))} onChange={() => toggleAll(paged.map(b => b.bookId))} />
           </span>
-          <span>Title / Author</span><span>Visibility</span><span>Type</span><span className="admin-th-right">Actions</span>
+          <span>Title / Author</span><span>Visibility</span><span>Moderation</span><span>Type</span><span className="admin-th-right">Actions</span>
         </div>
         {paged.length === 0 && <div className="admin-empty">No books match your search.</div>}
-        {paged.map((b) => (
+        {paged.map((b) => {
+          const modStatus = b.moderationStatus || "approved";
+          return (
           <div key={b.bookId} className="admin-row" style={{ gridTemplateColumns: BOOK_COLS }}>
             <span className="admin-row-check">
               <input type="checkbox" checked={selected.has(b.bookId)} onChange={() => toggleOne(b.bookId)} />
@@ -506,15 +592,27 @@ function BooksTab() {
               <div className="admin-row-sub">by {b.author || "Unknown"}{b.ownerEmail ? ` · uploaded by ${b.ownerEmail}` : ""}</div>
             </div>
             <Badge color={b.visibility === "public" ? "#60a5fa" : "#a78bfa"}>{b.visibility === "public" ? "Public" : "Private"}</Badge>
+            <Badge color={MODERATION_COLORS[modStatus]}>{modStatus.charAt(0).toUpperCase() + modStatus.slice(1)}</Badge>
             <Badge color="#ffcd5b">{(b.fileType || "—").toUpperCase()}</Badge>
             <div className="admin-row-actions">
+              {modStatus === "pending" && (
+                <>
+                  <IconBtn color="#4ade80" onClick={() => approve(b)} disabled={busy === b.bookId} title="Approve">
+                    {busy === b.bookId ? <Loader2 size={12} className="spin" /> : <CheckCircle2 size={12} />}
+                  </IconBtn>
+                  <IconBtn color="#f87171" onClick={() => reject(b)} disabled={busy === b.bookId} title="Reject">
+                    <XCircle size={12} />
+                  </IconBtn>
+                </>
+              )}
               <IconBtn color="#60a5fa" onClick={() => setModal(b)}><Pencil size={12} /></IconBtn>
               <IconBtn color="#f87171" onClick={() => del(b)} disabled={busy === b.bookId}>
                 {busy === b.bookId ? <Loader2 size={12} className="spin" /> : <Trash2 size={12} />}
               </IconBtn>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} totalItems={filteredCount} pageSize={PAGE_SIZE} />
@@ -668,6 +766,61 @@ function RequestsTab() {
   );
 }
 
+// ── AUDIT LOG TAB ─────────────────────────────────────────────────────────────
+const AUDIT_COLS = "1fr 130px 170px 140px";
+
+const ACTION_LABELS = {
+  create_user: "Created user", update_user: "Updated user", delete_user: "Deleted user",
+  batch_delete_users: "Bulk-deleted users", disable_user: "Disabled user", enable_user: "Enabled user",
+  create_book: "Created book", update_book: "Updated book", delete_book: "Deleted book",
+  batch_delete_books: "Bulk-deleted books", approve_book: "Approved book", reject_book: "Rejected book",
+  create_request: "Created request", update_request: "Updated request", delete_request: "Deleted request",
+  batch_delete_requests: "Bulk-deleted requests",
+  set_announcement: "Published announcement", clear_announcement: "Cleared announcement",
+};
+
+function AuditLogTab() {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setEntries(await api.adminGetAuditLog()); } catch {}
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const { search, setSearch, page, setPage, totalPages, paged, filteredCount } = useTableControls(entries, ["action", "targetType", "targetId", "adminEmail"]);
+
+  if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><Loader2 size={32} color="#ffcd5b" className="spin" /></div>;
+
+  return (
+    <div>
+      <div className="admin-toolbar">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search by action, target, or admin…" />
+      </div>
+
+      <div className="admin-table-card">
+        <div className="admin-thead" style={{ gridTemplateColumns: AUDIT_COLS }}>
+          <span>Action</span><span>Target</span><span>Admin</span><span>When</span>
+        </div>
+        {paged.length === 0 && <div className="admin-empty">No admin actions logged yet.</div>}
+        {paged.map((entry) => (
+          <div key={entry.logId} className="admin-row" style={{ gridTemplateColumns: AUDIT_COLS }}>
+            <div className="admin-row-title">{ACTION_LABELS[entry.action] || entry.action}</div>
+            <div className="admin-row-sub">{entry.targetType}{entry.targetId ? `: ${entry.targetId}` : ""}</div>
+            <div className="admin-row-sub">{entry.adminEmail}</div>
+            <div className="admin-row-date">{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "—"}</div>
+          </div>
+        ))}
+      </div>
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} totalItems={filteredCount} pageSize={PAGE_SIZE} />
+    </div>
+  );
+}
+
 // ── MAIN ADMIN PAGE ───────────────────────────────────────────────────────────
 export function AdminPage() {
   const { currentUser, isSuperAdmin, authChecked } = useAuth();
@@ -729,6 +882,7 @@ export function AdminPage() {
         {activeTab === "Users" && <UsersTab />}
         {activeTab === "Books" && <BooksTab />}
         {activeTab === "Requests" && <RequestsTab />}
+        {activeTab === "Audit Log" && <AuditLogTab />}
       </div>
     </div>
   );
