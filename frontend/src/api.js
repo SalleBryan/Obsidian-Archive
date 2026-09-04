@@ -201,6 +201,12 @@ export const api = {
     if (!res.ok) throw new Error("Failed to update profile");
     return res.json();
   },
+  deleteProfile: async () => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.profile, { method: "DELETE", headers });
+    if (!res.ok) throw new Error("Failed to delete profile");
+    return res.json();
+  },
 
   // ── Reading progress (cross-device) ──
   getProgress: async () => {
@@ -271,6 +277,16 @@ export const api = {
     if (!res.ok) throw new Error("Failed to delete user");
     return res.json();
   },
+  adminBatchDeleteUsers: async (userIds) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminUsers}/batch-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify({ userIds }),
+    });
+    if (!res.ok) throw new Error("Failed to delete users");
+    return res.json();
+  },
   adminToggleUser: async (userId, action) => {
     const headers = await getAuthHeader();
     const res = await fetch(`${EP.adminUsers}/${userId}/${action}`, { method: "PUT", headers });
@@ -310,6 +326,16 @@ export const api = {
     if (!res.ok) throw new Error("Failed to delete book");
     return res.json();
   },
+  adminBatchDeleteBooks: async (bookIds) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminBooks}/batch-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify({ bookIds }),
+    });
+    if (!res.ok) throw new Error("Failed to delete books");
+    return res.json();
+  },
   adminGetRequests: async () => {
     const headers = await getAuthHeader();
     const res = await fetch(EP.adminRequests, { headers });
@@ -341,6 +367,16 @@ export const api = {
     const headers = await getAuthHeader();
     const res = await fetch(`${EP.adminRequests}/${requestId}`, { method: "DELETE", headers });
     if (!res.ok) throw new Error("Failed to delete request");
+    return res.json();
+  },
+  adminBatchDeleteRequests: async (requestIds) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminRequests}/batch-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify({ requestIds }),
+    });
+    if (!res.ok) throw new Error("Failed to delete requests");
     return res.json();
   },
 };
