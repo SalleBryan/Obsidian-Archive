@@ -3,9 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Loader2, Users, BookOpen, FileQuestion, ShieldAlert, Trash2, Ban, CheckCircle2, XCircle, ArrowLeft, Pencil, Plus, X, Eye, EyeOff, Search, ChevronLeft, ChevronRight, Download, Megaphone } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
-import { ADMIN_STYLES } from "../adminStyles";
-
-// ── ADMIN PANEL — standalone page, separate from user-facing shell ────────────
+import "../styles/admin.css";
 
 const TABS = ["Dashboard", "Users", "Books", "Requests", "Audit Log"];
 const PAGE_SIZE = 8;
@@ -32,7 +30,6 @@ function IconBtn({ color, children, ...props }) {
   return <button className="admin-icon-btn" style={{ "--c": color }} {...props}>{children}</button>;
 }
 
-// ── Search + pagination, shared across all three tabs ──────────────────────
 function useTableControls(items, searchFields, pageSize = PAGE_SIZE) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -51,7 +48,6 @@ function useTableControls(items, searchFields, pageSize = PAGE_SIZE) {
   return { search, setSearch, page, setPage, totalPages, paged, filtered, filteredCount: filtered.length };
 }
 
-// ── Bulk row selection, shared across all three tabs ────────────────────────
 function useSelection() {
   const [selected, setSelected] = useState(() => new Set());
   const toggleOne = (id) => setSelected(prev => {
@@ -66,7 +62,6 @@ function useSelection() {
   return { selected, toggleOne, toggleAll, clear };
 }
 
-// Exports the full filtered list (not just the current page) as a CSV download.
 function downloadCSV(filename, rows, columns) {
   const esc = (v) => {
     const s = (v ?? "").toString();
@@ -135,7 +130,6 @@ function Pagination({ page, totalPages, onChange, totalItems, pageSize }) {
   );
 }
 
-// ── Generic create/edit modal, config-driven so Users/Books/Requests share it ──
 function FormModal({ title, fields, initial, onSubmit, onClose }) {
   const [values, setValues] = useState(initial || {});
   const [saving, setSaving] = useState(false);
@@ -196,7 +190,6 @@ function FormModal({ title, fields, initial, onSubmit, onClose }) {
   );
 }
 
-// ── ADMIN SIGN-IN GATE ─────────────────────────────────────────────────────
 function AdminSignIn() {
   const { handleSignIn, authLoading, authError } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
@@ -209,7 +202,6 @@ function AdminSignIn() {
 
   return (
     <div className="admin-signin-page">
-      <style>{ADMIN_STYLES}</style>
       <div className="admin-signin-card">
         <div className="admin-signin-title-row">
           <ShieldAlert size={22} color="#ffcd5b" />
@@ -253,7 +245,6 @@ function AccessDenied({ email }) {
   const navigate = useNavigate();
   return (
     <div className="admin-denied-page">
-      <style>{ADMIN_STYLES}</style>
       <ShieldAlert size={44} style={{ color: "#f87171" }} />
       <h2 className="admin-denied-title">Access Denied</h2>
       <p className="admin-denied-text"><strong>{email}</strong> does not have administrator privileges.</p>
@@ -262,7 +253,6 @@ function AccessDenied({ email }) {
   );
 }
 
-// ── DASHBOARD TAB ─────────────────────────────────────────────────────────────
 function AnnouncementControl() {
   const [current, setCurrent] = useState(null);
   const [message, setMessage] = useState("");
@@ -338,7 +328,6 @@ function DashboardTab({ stats, loading }) {
   );
 }
 
-// ── USERS TAB ─────────────────────────────────────────────────────────────────
 const USER_COLS = "28px 1fr 100px 110px 150px";
 
 function UsersTab() {
@@ -474,7 +463,6 @@ function UsersTab() {
   );
 }
 
-// ── BOOKS TAB ─────────────────────────────────────────────────────────────────
 const BOOK_COLS = "28px 1fr 90px 95px 70px 140px";
 
 const MODERATION_COLORS = { pending: "#ffcd5b", approved: "#4ade80", rejected: "#f87171" };
@@ -639,7 +627,6 @@ function BooksTab() {
   );
 }
 
-// ── REQUESTS TAB ─────────────────────────────────────────────────────────────
 const REQUEST_COLS = "28px 1fr 100px 110px 100px";
 
 function RequestsTab() {
@@ -766,7 +753,6 @@ function RequestsTab() {
   );
 }
 
-// ── AUDIT LOG TAB ─────────────────────────────────────────────────────────────
 const AUDIT_COLS = "1fr 130px 170px 140px";
 
 const ACTION_LABELS = {
@@ -821,7 +807,6 @@ function AuditLogTab() {
   );
 }
 
-// ── MAIN ADMIN PAGE ───────────────────────────────────────────────────────────
 export function AdminPage() {
   const { currentUser, isSuperAdmin, authChecked } = useAuth();
   const navigate = useNavigate();
@@ -849,8 +834,6 @@ export function AdminPage() {
 
   return (
     <div className="admin-page">
-      <style>{ADMIN_STYLES}</style>
-
       <div className="admin-header">
         <button className="admin-back-btn" onClick={() => navigate("/library")}>
           <ArrowLeft size={16} /> Back to Platform
