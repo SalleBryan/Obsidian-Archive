@@ -43,9 +43,6 @@ def process_message(body):
             'categories': body.get('categories') or [body.get('category', 'Uncategorized')],
             'description': body.get('description', ''),
             'visibility': visibility,
-            # Private books are only ever visible to their owner, so there's
-            # nothing to moderate. Public books wait for admin approval before
-            # they appear in the public library.
             'moderationStatus': 'approved' if visibility == 'private' else 'pending',
             'createdAt': now,
             'updatedAt': now
@@ -67,9 +64,7 @@ def process_message(body):
             item['fileSizeBytes'] = int(body['fileSizeBytes'])
 
         books_table.put_item(Item=item)
-        # Matching-request notifications fire on approval, not here — notifying
-        # a requester about a book that isn't even public yet (and might get
-        # rejected) would be misleading.
+        # Matching-request notifications fire on approval, not here.
 
     elif operation == "UPDATE_BOOK":
         book_id = body.get('bookId')
@@ -206,8 +201,7 @@ def process_message(body):
         req = resp.get('Item')
         if not req:
             return
-        # upvoterIds is a DynamoDB String Set — ADD/DELETE are atomic and
-        # naturally dedupe, so no read-modify-write race on concurrent toggles.
+        # ADD/DELETE on a String Set is atomic, so concurrent toggles don't race.
         already_upvoted = user_id in (req.get('upvoterIds') or set())
         requests_table.update_item(
             Key={'requestId': req_id},

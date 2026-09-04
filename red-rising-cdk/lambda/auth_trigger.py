@@ -33,5 +33,4 @@ def lambda_handler(event, context):
     except Exception as e:
         print(f"Error creating profile: {e}")
         
-    # Return the event object as required by Cognito Post-Confirmation trigger
     return event

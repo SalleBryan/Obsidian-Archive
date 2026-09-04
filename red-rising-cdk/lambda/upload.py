@@ -24,7 +24,6 @@ def lambda_handler(event, context):
         user_id = auth['userId']
         is_super_admin = auth['isSuperAdmin']
 
-        # ── 1. READ BOOK STREAM TOKEN (GET /books/{bookId}/read or read-auth) ──
         if resource in ['/books/{bookId}/read', '/books/{bookId}/read-auth']:
             book_id = event.get('pathParameters', {}).get('bookId')
             if not book_id or not books_table:
@@ -63,7 +62,6 @@ def lambda_handler(event, context):
                 "fileType": book.get('fileType', 'pdf'),
             })
 
-        # ── 2. UPLOADS (Require Authentication) ──
         if not user_id:
             return respond(401, {"error": "Unauthorized. Please sign in to upload."})
 

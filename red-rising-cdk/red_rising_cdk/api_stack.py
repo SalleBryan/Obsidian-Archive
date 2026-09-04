@@ -12,10 +12,8 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-# Single source of truth for the super-admin allowlist, shared with the
-# frontend (frontend/src/admin-config.json — same file, read at build time
-# there and at deploy time here) so the two can never silently drift apart.
-_ADMIN_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "src", "admin-config.json")
+# Super-admin allowlist shared with the frontend (frontend/src/config/adminConfig.json).
+_ADMIN_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "src", "config", "adminConfig.json")
 with open(_ADMIN_CONFIG_PATH) as _f:
     _SUPER_ADMIN_EMAILS = ",".join(json.load(_f)["superAdminEmails"])
 

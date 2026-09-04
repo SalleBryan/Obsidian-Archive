@@ -17,7 +17,6 @@ def lambda_handler(event, context):
         body = parse_body(event)
         operation = body.get('operation')
 
-        # Flatten nested payload into top-level body
         payload = body.pop('payload', {})
         body.update(payload)
 
@@ -34,7 +33,6 @@ def lambda_handler(event, context):
 
         body['isAdmin'] = auth['isSuperAdmin']
 
-        # Inject verified identity context
         if operation in ["CREATE_BOOK", "UPDATE_BOOK", "DELETE_BOOK", "BATCH_DELETE_BOOKS"]:
             body['ownerId'] = user_id
             body['uploaderName'] = claims.get('name', email.split('@')[0] if email else 'Reader')

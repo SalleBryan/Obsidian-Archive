@@ -26,7 +26,6 @@ def lambda_handler(event, context):
         method = event.get('httpMethod')
         book_id = (event.get('pathParameters') or {}).get('bookId')
 
-        # ── LIST all progress rows for this user ──
         if method == 'GET':
             resp = progress_table.query(
                 KeyConditionExpression=Key('userId').eq(user_id)
@@ -35,13 +34,11 @@ def lambda_handler(event, context):
             items.sort(key=lambda x: x.get('updatedAt', 0), reverse=True)
             return respond(200, {"progress": items})
 
-        # ── UPSERT progress for one book ──
         if method == 'PUT':
             if not book_id:
                 return respond(400, {"error": "Missing bookId"})
             body = parse_body(event)
 
-            # Clamp percent to 0..100
             try:
                 percent = int(body.get('percent', 0))
             except (TypeError, ValueError):
@@ -61,7 +58,6 @@ def lambda_handler(event, context):
             progress_table.put_item(Item=item)
             return respond(200, item)
 
-        # ── DELETE progress for one book (e.g. "remove from Continue Reading") ──
         if method == 'DELETE':
             if not book_id:
                 return respond(400, {"error": "Missing bookId"})

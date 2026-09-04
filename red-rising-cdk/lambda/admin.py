@@ -112,7 +112,6 @@ def _resolve_username(user_id):
     return profile.get("email", user_id)
 
 
-# ── STATS ──────────────────────────────────────────────────────────────────
 def get_stats():
     books_count = books_table.scan(Select="COUNT").get("Count", 0) if books_table else 0
     public_count = books_table.scan(
@@ -135,7 +134,6 @@ def get_stats():
     })
 
 
-# ── USERS (Cognito Admin API) ─────────────────────────────────────────────
 def list_users():
     raw = _list_cognito_users()
     users = []
@@ -257,11 +255,7 @@ def toggle_user(user_id, disable):
     return respond(200, {"message": f"User {'disabled' if disable else 'enabled'} successfully"})
 
 
-# ── BOOKS ──────────────────────────────────────────────────────────────────
-# Hard cap on admin list scans — the admin panel loads a tab's full list once
-# and does search/pagination client-side, which is the right call at this
-# table size. This cap just stops a single Lambda call from ballooning in
-# time/memory if the archive ever grows very large before that gets revisited.
+# Caps a single scan so admin list endpoints can't balloon in time/memory.
 _MAX_SCAN_ITEMS = 2000
 
 def _resolve_owner_emails(owner_ids):
@@ -379,8 +373,7 @@ def reject_book_admin(book_id):
     if not resp.get("Item"):
         return respond(404, {"error": "Book not found"})
 
-    # Rejected books stay in the table (not deleted) so the uploader can see
-    # their book was rejected instead of it just silently vanishing.
+    # Kept in the table (not deleted) so the uploader can see the rejection.
     books_table.update_item(
         Key={"bookId": book_id},
         UpdateExpression="SET moderationStatus = :s, updatedAt = :u",
@@ -456,7 +449,6 @@ def batch_delete_books(book_ids):
     return respond(200, {"deleted": deleted, "failed": failed})
 
 
-# ── REQUESTS ───────────────────────────────────────────────────────────────
 def list_all_requests():
     items = []
     resp = requests_table.scan() if requests_table else {"Items": []}
@@ -546,7 +538,6 @@ def batch_delete_requests(request_ids):
     return respond(200, {"deleted": deleted, "failed": failed})
 
 
-# ── ROUTER ─────────────────────────────────────────────────────────────────
 def lambda_handler(event, context):
     auth = get_auth_context(event)
     if not auth["isSuperAdmin"]:
