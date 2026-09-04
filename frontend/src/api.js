@@ -164,6 +164,16 @@ export const api = {
     if (!res.ok) throw new Error("Failed to delete request");
     return res.json();
   },
+  toggleUpvoteRequest: async (requestId) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.requests}/${requestId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify({ operation: "TOGGLE_UPVOTE_REQUEST", payload: { requestId } })
+    });
+    if (!res.ok) throw new Error("Failed to update upvote");
+    return res.json();
+  },
   getNotifications: async () => {
     try {
       const headers = await getAuthHeader();
@@ -243,6 +253,38 @@ export const api = {
     const res = await fetch(EP.adminStats, { headers });
     if (!res.ok) throw new Error("Failed to load stats");
     return res.json();
+  },
+  getAnnouncement: async () => {
+    try {
+      const res = await fetch(EP.announcement);
+      if (!res.ok) return { active: false };
+      return res.json();
+    } catch {
+      return { active: false };
+    }
+  },
+  adminSetAnnouncement: async (message) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.adminAnnouncement, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify({ message }),
+    });
+    if (!res.ok) throw new Error("Failed to publish announcement");
+    return res.json();
+  },
+  adminClearAnnouncement: async () => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.adminAnnouncement, { method: "DELETE", headers });
+    if (!res.ok) throw new Error("Failed to clear announcement");
+    return res.json();
+  },
+  adminGetAuditLog: async () => {
+    const headers = await getAuthHeader();
+    const res = await fetch(EP.adminAuditLog, { headers });
+    if (!res.ok) throw new Error("Failed to load audit log");
+    const data = await res.json();
+    return data.entries || [];
   },
   adminGetUsers: async () => {
     const headers = await getAuthHeader();
@@ -324,6 +366,18 @@ export const api = {
     const headers = await getAuthHeader();
     const res = await fetch(`${EP.adminBooks}/${bookId}`, { method: "DELETE", headers });
     if (!res.ok) throw new Error("Failed to delete book");
+    return res.json();
+  },
+  adminApproveBook: async (bookId) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminBooks}/${bookId}/approve`, { method: "PUT", headers });
+    if (!res.ok) throw new Error("Failed to approve book");
+    return res.json();
+  },
+  adminRejectBook: async (bookId) => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${EP.adminBooks}/${bookId}/reject`, { method: "PUT", headers });
+    if (!res.ok) throw new Error("Failed to reject book");
     return res.json();
   },
   adminBatchDeleteBooks: async (bookIds) => {

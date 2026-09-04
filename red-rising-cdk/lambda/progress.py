@@ -1,4 +1,3 @@
-import json
 import boto3
 import os
 import time
@@ -12,8 +11,9 @@ progress_table = dynamodb.Table(PROGRESS_TABLE) if PROGRESS_TABLE else None
 def lambda_handler(event, context):
     """Cross-device reading progress. One row per (userId, bookId).
 
-    GET  /progress              → list all of the caller's in-progress books
-    PUT  /progress/{bookId}     → upsert progress for one book
+    GET    /progress          → list all of the caller's in-progress books
+    PUT    /progress/{bookId} → upsert progress for one book
+    DELETE /progress/{bookId} → remove one book from Continue Reading
     """
     try:
         auth = get_auth_context(event)

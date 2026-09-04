@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { upsertReadingProgress, syncProgressToCloud } from "../lib/progress";
+import { recordProgress } from "../lib/progress";
 
 // ── PDF VIEWER (PDF.js canvas, two-page desktop spread, swipe on mobile) ─────
 export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
@@ -151,9 +151,7 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
     if (loading || !numPages) return;
     try { localStorage.setItem(pageKey, String(pageNum)); } catch {}
     const percent = Math.round((pageNum / numPages) * 100);
-    const entry = { bookId, title, author, fileType: "pdf", percent, position: String(pageNum) };
-    upsertReadingProgress(userId, entry);
-    syncProgressToCloud(userId, entry);
+    recordProgress(userId, { bookId, title, author, fileType: "pdf", percent, position: String(pageNum) });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNum, numPages, loading]);
 

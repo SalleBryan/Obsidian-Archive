@@ -7,7 +7,7 @@ import { hydrateBookPosition } from "../lib/progress";
 import { EpubViewer } from "../reader/EpubViewer";
 import { PdfViewer } from "../reader/PdfViewer";
 
-// ── PAGE 7: IN-BROWSER ONLINE BOOK READER ───────────────────────────────────
+// ── IN-BROWSER ONLINE BOOK READER ─────────────────────────────────────────────
 export function OnlineReaderPage({ currentUser, authChecked }) {
   const { bookId } = useParams();
   const navigate = useNavigate();

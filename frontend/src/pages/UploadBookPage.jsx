@@ -4,7 +4,7 @@ import { ArrowLeft, Library, Loader2, Save, UploadCloud, Lock, LogIn, FileText }
 import { api } from "../api";
 import { CATEGORIES } from "../constants";
 
-// ── PAGE 4: UPLOAD BOOK (WITH ANIMATED PROGRESS BAR & SERIES) ────────────────
+// ── UPLOAD BOOK ────────────────────────────────────────────────────────────────
 export function UploadBookPage({ currentUser, onOpenAuth }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

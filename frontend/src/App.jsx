@@ -7,6 +7,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import { MobileBottomNav } from "./components/MobileBottomNav";
 import { AuthModal } from "./components/AuthModal";
+import { AnnouncementBanner } from "./components/AnnouncementBanner";
 import { BookDetailPage } from "./pages/BookDetailPage";
 import { EditBookPage } from "./pages/EditBookPage";
 import { MyCollectionPage } from "./pages/MyCollectionPage";
@@ -110,6 +111,7 @@ function AppShell() {
         <Sidebar />
 
         <div className="main-area">
+          <AnnouncementBanner />
           <Topbar
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
