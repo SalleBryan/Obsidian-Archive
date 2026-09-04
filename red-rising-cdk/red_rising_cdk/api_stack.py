@@ -34,9 +34,13 @@ class ObsidianApiStack(Stack):
         covers_bucket,
         files_bucket,
         queue,
+        stage: str = "prod",
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        def n(base: str) -> str:
+            return base if stage == "prod" else f"{base}-{stage}"
 
         shared_code = _lambda.Code.from_asset("lambda")
 
@@ -161,7 +165,7 @@ class ObsidianApiStack(Stack):
         # ── 2. API GATEWAY ──
         api = apigw.RestApi(
             self, "ObsidianApi",
-            rest_api_name="obsidian-archive-api",
+            rest_api_name=n("obsidian-archive-api"),
             deploy_options=apigw.StageOptions(stage_name="prod"),
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=apigw.Cors.ALL_ORIGINS,
