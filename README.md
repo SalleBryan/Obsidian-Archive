@@ -218,25 +218,29 @@ Cognito calls this the moment a user confirms their email. It writes a minimal p
 
 ## Part 3 — Frontend Architecture (after the split)
 
-The frontend was one 4,145-line App.jsx. It is now split into focused modules under src/, which is how the rest of this document is organised. The dependency direction is clean and one-way: pages and components depend on the shared infrastructure modules (api, config, constants, lib, styles), never the other way around.
+The frontend is split into focused modules under src/. The dependency direction is clean and one-way: pages and components depend on the shared infrastructure modules (api, config, lib, styles), never the other way around.
 
 
 ```text
 src/
   App.jsx              ← root: <App/> + <AppShell/> (routing, nav, auth modal, notifications)
-  config.js            ← API base URL, endpoint map (EP), super-admin check
-  constants.js         ← CATEGORIES, category colours
   api.js               ← the API client object (one method per backend route)
-  styles.js            ← the global CSS string
-  amplifyConfig.js     ← Cognito/Amplify configuration (side-effect import)
+  config/
+    index.js           ← API base URL, endpoint map (EP), super-admin check
+    constants.js       ← CATEGORIES, category colours
+    adminConfig.json   ← super-admin email allowlist (shared with the CDK backend)
+    amplifyConfig.js   ← Cognito/Amplify configuration (side-effect import)
+  styles/
+    app.css            ← global stylesheet
+    admin.css          ← admin panel stylesheet
   lib/
     progress.js        ← reading-progress: localStorage cache + cloud sync
     upload.js          ← XHR direct-to-S3 upload helper (mobile-safe)
   components/
-    shelves.jsx        ← BookCoverShelfItem, HorizontalShelf, ContinueReadingShelf, BookCardItem
+    Shelves.jsx        ← BookCoverShelfItem, HorizontalShelf, ContinueReadingShelf, BookCardItem
   pages/
     PublicLibraryPage, MyCollectionPage, RequestsBoardPage, UploadBookPage,
-    BookDetailPage, EditBookPage, OnlineReaderPage, UserProfilePage
+    BookDetailPage, EditBookPage, OnlineReaderPage, UserProfilePage, AdminPage
   reader/
     EpubViewer.jsx     ← epub.js reader (paginated, two-page spread, search, swipe)
     PdfViewer.jsx      ← PDF.js canvas reader (two-page spread, slider, swipe)
@@ -251,13 +255,13 @@ Every network call goes through the single 'api' object in api.js. Each method a
 ## Part 4 — Shared Frontend Modules
 
 
-### config.js
+### config/index.js
 
 - API_BASE — the API Gateway base URL.
 - EP — a map of endpoint URLs (books, booksMine, uploadCover, uploadBook, requests, profile, notifications, and the new progress).
 - SUPER_ADMIN_EMAILS + checkIsSuperAdmin(user) — returns true for the platform owners; used by AppShell to grant admin UI.
 
-### constants.js
+### config/constants.js
 
 - CATEGORIES — the full genre list, now including Dystopian, Thriller, Horror, Historical Fiction, Young Adult, etc.
 - CAT_COLORS + getCatColor(cat) — a stable colour per genre for cover placeholders and accents.
@@ -301,15 +305,15 @@ Called by the library. Returns the local list instantly, then fetches cloud prog
 The reader-side counterpart. OnlineReaderPage calls it (in parallel with fetching the read URL) so that opening a book DIRECTLY on a fresh device — without first visiting the library — still seeds the local resume key from the cloud before the viewer mounts. Local position wins if one already exists on this device.
 
 
-### styles.js
+### styles/app.css
 
-A single exported CSS string injected once via <style> in AppShell. It defines the whole visual system: the Google-Play-Books shelves, cards, reader chrome, nav buttons (.reader-nav-btn), and the responsive .epub-canvas-container whose max-width breakpoints (620 / 1100 / 1360 px) let the EPUB two-page spread widen on larger screens.
+The global stylesheet, imported once at the app entry point. It defines the whole visual system: the Google-Play-Books shelves, cards, reader chrome, nav buttons (.reader-nav-btn), and the responsive .epub-canvas-container whose max-width breakpoints (620 / 1100 / 1360 px) let the EPUB two-page spread widen on larger screens. styles/admin.css covers the admin panel separately, imported only by AdminPage.
 
 
 ## Part 5 — Components & Pages
 
 
-### components/shelves.jsx
+### components/Shelves.jsx
 
 
 **`BookCoverShelfItem({ book, size, onSelect })`**  
@@ -487,13 +491,13 @@ Design choices, and why: localStorage is the source of instant truth (no spinner
 - `red-rising-cdk/lambda/progress.py` — Cross-device reading progress (NEW)
 - `red-rising-cdk/lambda/auth_trigger.py` — Cognito post-confirmation → create profile
 - `frontend/src/App.jsx` — Root + AppShell (routing, nav, auth modal, notifications)
-- `frontend/src/config.js` — API base, endpoint map, super-admin check
-- `frontend/src/constants.js` — Genres + colours
+- `frontend/src/config/index.js` — API base, endpoint map, super-admin check
+- `frontend/src/config/constants.js` — Genres + colours
 - `frontend/src/api.js` — API client (one method per route)
-- `frontend/src/styles.js` — Global CSS
+- `frontend/src/styles/app.css` — Global CSS
 - `frontend/src/lib/progress.js` — Reading progress: localStorage + cloud sync (NEW)
 - `frontend/src/lib/upload.js` — Mobile-safe direct-to-S3 upload
-- `frontend/src/components/shelves.jsx` — Shelf/card components incl. ContinueReadingShelf
+- `frontend/src/components/Shelves.jsx` — Shelf/card components incl. ContinueReadingShelf
 - `frontend/src/pages/*.jsx` — 8 page components
 - `frontend/src/reader/EpubViewer.jsx` — EPUB reader
 - `frontend/src/reader/PdfViewer.jsx` — PDF reader
