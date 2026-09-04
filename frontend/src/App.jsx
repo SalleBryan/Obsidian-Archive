@@ -15,8 +15,7 @@ import { PublicLibraryPage } from "./pages/PublicLibraryPage";
 import { RequestsBoardPage } from "./pages/RequestsBoardPage";
 import { UploadBookPage } from "./pages/UploadBookPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
-import { STYLES } from "./styles";
-import "./amplifyConfig";
+import "./config/amplifyConfig";
 
 // Lazy-loaded: OnlineReaderPage pulls in epub.js + pdfjs-dist (the two
 // heaviest dependencies in the app, ~1.7MB combined). AdminPage is reachable
@@ -77,36 +76,29 @@ function AppShell() {
 
   if (isAdminMode) {
     return (
-      <>
-        <style>{STYLES}</style>
-        <Suspense fallback={<RouteLoader />}>
-          <Routes>
-            <Route path="/admin" element={<AdminPage />} />
-          </Routes>
-        </Suspense>
-      </>
+      <Suspense fallback={<RouteLoader />}>
+        <Routes>
+          <Route path="/admin" element={<AdminPage />} />
+        </Routes>
+      </Suspense>
     );
   }
 
   if (isReaderMode) {
     return (
-      <>
-        <style>{STYLES}</style>
-        <Suspense fallback={<RouteLoader />}>
-          <Routes>
-            <Route
-              path="/read/:bookId"
-              element={<OnlineReaderPage currentUser={currentUser} authChecked={authChecked} />}
-            />
-          </Routes>
-        </Suspense>
-      </>
+      <Suspense fallback={<RouteLoader />}>
+        <Routes>
+          <Route
+            path="/read/:bookId"
+            element={<OnlineReaderPage currentUser={currentUser} authChecked={authChecked} />}
+          />
+        </Routes>
+      </Suspense>
     );
   }
 
   return (
     <>
-      <style>{STYLES}</style>
       <div className="shell">
         <Sidebar />
 
