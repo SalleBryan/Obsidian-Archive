@@ -83,7 +83,7 @@ export function Topbar({ searchQuery, setSearchQuery, notifications = [], onNoti
         </div>
       </header>
 
-      {/* GOOGLE PLAY BOOKS STYLE MOBILE TOP SEARCH PILL */}
+      {/* MOBILE TOP SEARCH PILL */}
       <div className="mobile-search-pill-container">
         <div className="mobile-search-pill">
           <Search size={18} className="search-pill-icon" />

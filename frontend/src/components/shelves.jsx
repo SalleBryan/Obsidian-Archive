@@ -1,7 +1,7 @@
 import { BookOpen, Lock, Globe, ChevronRight } from "lucide-react";
 import { getCatColor } from "../constants";
 
-// ── GOOGLE PLAY BOOKS STYLE SHELF COMPONENTS ─────────────────────────────────
+// ── HORIZONTAL SHELF COMPONENTS ───────────────────────────────────────────────
 export function BookCoverShelfItem({ book, onSelect, size = "standard" }) {
   const isLarge = size === "large";
   return (

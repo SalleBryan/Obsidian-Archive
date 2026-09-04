@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, ArrowLeft, X, Loader2, Bookmark, ChevronDown } from "lucide-react";
 import ePub from "epubjs";
-import { upsertReadingProgress, syncProgressToCloud } from "../lib/progress";
+import { recordProgress } from "../lib/progress";
 
 export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, author }) {
   const viewerRef = useRef(null);
@@ -138,9 +138,7 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
             }
 
             // Record this book in the "Continue Reading" shelf (local + cloud)
-            const entry = { bookId, title, author, fileType: "epub", percent: pct, position: cfi };
-            upsertReadingProgress(userId, entry);
-            syncProgressToCloud(userId, entry);
+            recordProgress(userId, { bookId, title, author, fileType: "epub", percent: pct, position: cfi });
 
             // Update chapter name
             const nav = navRef.current;
@@ -183,9 +181,7 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
       if (loc?.start?.cfi && bookRef.current.locations?.length()) {
         const pct = Math.round(bookRef.current.locations.percentageFromCfi(loc.start.cfi) * 100);
         setReadingProgress(pct);
-        const entry = { bookId, title, author, fileType: "epub", percent: pct, position: loc.start.cfi };
-        upsertReadingProgress(userId, entry);
-        syncProgressToCloud(userId, entry);
+        recordProgress(userId, { bookId, title, author, fileType: "epub", percent: pct, position: loc.start.cfi });
       }
     } catch {}
   }, [locationsReady]);

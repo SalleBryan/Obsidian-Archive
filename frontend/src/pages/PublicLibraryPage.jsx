@@ -5,7 +5,7 @@ import { api } from "../api";
 import { BookCoverShelfItem, HorizontalShelf, BookCardItem } from "../components/shelves";
 import { CATEGORIES } from "../constants";
 
-// ── PAGE 1: PUBLIC LIBRARY (GOOGLE PLAY BOOKS STYLE) ─────────────────────────
+// ── PUBLIC LIBRARY ────────────────────────────────────────────────────────────
 export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSuperAdmin }) {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
@@ -69,7 +69,7 @@ export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSupe
 
   return (
     <div className="page fade-in">
-      {/* PLAY BOOKS TOP BANNER */}
+      {/* TOP BANNER */}
       <div className="playbooks-banner">
         <div className="playbooks-banner-text">
           <Sparkles size={14} color="#ffcd5b" style={{ flexShrink: 0 }} />
@@ -124,7 +124,7 @@ export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSupe
           )}
         </div>
       ) : (
-        /* STANDARD GOOGLE PLAY BOOKS HOME VIEW */
+        /* DEFAULT HOME VIEW */
         <div>
           {/* FEATURED / RECENT READS HORIZONTAL SHELF */}
           {books.length > 0 && (
@@ -142,7 +142,7 @@ export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSupe
             </div>
           )}
 
-          {/* GOOGLE PLAY BOOKS TABS */}
+          {/* VIEW TABS */}
           <div className="gplay-tabs-row">
             <button
               className={`gplay-tab-btn ${activeTab === "ebooks" ? "active" : ""}`}
@@ -218,7 +218,7 @@ export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSupe
               ))}
             </div>
           ) : (
-            /* DEFAULT EBOOKS SHELVES VIEW (Like Google Play Books) */
+            /* DEFAULT EBOOKS SHELVES VIEW */
             <div>
               {/* Ebooks for you shelf */}
               <HorizontalShelf
