@@ -158,6 +158,23 @@ def delete_user(user_id):
     return respond(200, {"message": "User deleted"})
 
 
+def batch_delete_users(user_ids):
+    if not user_ids:
+        return respond(400, {"error": "No userIds provided"})
+    deleted, failed = [], []
+    for uid in user_ids:
+        try:
+            username = _resolve_username(uid)
+            cognito_client.admin_delete_user(UserPoolId=USER_POOL_ID, Username=username)
+            if profiles_table:
+                profiles_table.delete_item(Key={"userId": uid})
+            deleted.append(uid)
+        except Exception as e:
+            print(f"Batch delete failed for user {uid}: {e}")
+            failed.append(uid)
+    return respond(200, {"deleted": deleted, "failed": failed})
+
+
 def toggle_user(user_id, disable):
     if not user_id:
         return respond(400, {"error": "Missing userId"})
@@ -176,6 +193,23 @@ def toggle_user(user_id, disable):
 # time/memory if the archive ever grows very large before that gets revisited.
 _MAX_SCAN_ITEMS = 2000
 
+def _resolve_owner_emails(owner_ids):
+    """Batch-fetch emails for a set of ownerIds via DynamoDB batch_get_item
+    (max 100 keys per call) instead of one get_item per book (N+1)."""
+    unique_ids = list({oid for oid in owner_ids if oid})
+    if not unique_ids or not profiles_table:
+        return {}
+    emails = {}
+    for i in range(0, len(unique_ids), 100):
+        chunk = unique_ids[i:i + 100]
+        resp = dynamodb.batch_get_item(RequestItems={
+            PROFILES_TABLE: {"Keys": [{"userId": uid} for uid in chunk]}
+        })
+        for item in resp.get("Responses", {}).get(PROFILES_TABLE, []):
+            emails[item["userId"]] = item.get("email", "")
+    return emails
+
+
 def list_all_books():
     items = []
     resp = books_table.scan() if books_table else {"Items": []}
@@ -183,7 +217,11 @@ def list_all_books():
     while "LastEvaluatedKey" in resp and len(items) < _MAX_SCAN_ITEMS:
         resp = books_table.scan(ExclusiveStartKey=resp["LastEvaluatedKey"])
         items.extend(resp.get("Items", []))
-    safe = [{k: v for k, v in b.items() if k != "fileKey"} for b in items]
+    owner_emails = _resolve_owner_emails([b.get("ownerId") for b in items])
+    safe = [
+        {**{k: v for k, v in b.items() if k != "fileKey"}, "ownerEmail": owner_emails.get(b.get("ownerId"), "")}
+        for b in items
+    ]
     return respond(200, {"books": safe, "truncated": "LastEvaluatedKey" in resp})
 
 
@@ -236,13 +274,11 @@ def update_book_admin(book_id, body):
     return respond(200, {"message": "Book updated"})
 
 
-def delete_book_admin(book_id):
-    if not book_id or not books_table:
-        return respond(400, {"error": "Missing bookId"})
+def _delete_book_row(book_id):
     resp = books_table.get_item(Key={"bookId": book_id})
     book = resp.get("Item")
     if not book:
-        return respond(404, {"error": "Book not found"})
+        return False
     for bucket, key_field in [(COVERS_BUCKET, "coverKey"), (FILES_BUCKET, "fileKey")]:
         key = book.get(key_field)
         if bucket and key:
@@ -251,7 +287,28 @@ def delete_book_admin(book_id):
             except Exception as e:
                 print(f"S3 delete failed: {e}")
     books_table.delete_item(Key={"bookId": book_id})
+    return True
+
+
+def delete_book_admin(book_id):
+    if not book_id or not books_table:
+        return respond(400, {"error": "Missing bookId"})
+    if not _delete_book_row(book_id):
+        return respond(404, {"error": "Book not found"})
     return respond(200, {"message": "Book deleted"})
+
+
+def batch_delete_books(book_ids):
+    if not book_ids:
+        return respond(400, {"error": "No bookIds provided"})
+    deleted, failed = [], []
+    for bid in book_ids:
+        try:
+            (deleted if _delete_book_row(bid) else failed).append(bid)
+        except Exception as e:
+            print(f"Batch delete failed for book {bid}: {e}")
+            failed.append(bid)
+    return respond(200, {"deleted": deleted, "failed": failed})
 
 
 # ── REQUESTS ───────────────────────────────────────────────────────────────
@@ -309,20 +366,39 @@ def update_request_admin(req_id, body):
     return respond(200, {"message": "Request updated"})
 
 
-def delete_request_admin(req_id):
-    if not req_id or not requests_table:
-        return respond(400, {"error": "Missing requestId"})
+def _delete_request_row(req_id):
     resp = requests_table.get_item(Key={"requestId": req_id})
     req = resp.get("Item")
     if not req:
-        return respond(404, {"error": "Request not found"})
+        return False
     if COVERS_BUCKET and req.get("coverKey"):
         try:
             s3.delete_object(Bucket=COVERS_BUCKET, Key=req["coverKey"])
         except Exception as e:
             print(f"S3 delete failed: {e}")
     requests_table.delete_item(Key={"requestId": req_id})
+    return True
+
+
+def delete_request_admin(req_id):
+    if not req_id or not requests_table:
+        return respond(400, {"error": "Missing requestId"})
+    if not _delete_request_row(req_id):
+        return respond(404, {"error": "Request not found"})
     return respond(200, {"message": "Request deleted"})
+
+
+def batch_delete_requests(request_ids):
+    if not request_ids:
+        return respond(400, {"error": "No requestIds provided"})
+    deleted, failed = [], []
+    for rid in request_ids:
+        try:
+            (deleted if _delete_request_row(rid) else failed).append(rid)
+        except Exception as e:
+            print(f"Batch delete failed for request {rid}: {e}")
+            failed.append(rid)
+    return respond(200, {"deleted": deleted, "failed": failed})
 
 
 # ── ROUTER ─────────────────────────────────────────────────────────────────
@@ -352,6 +428,9 @@ def lambda_handler(event, context):
             if method == "DELETE":
                 return delete_user(path_params.get("userId"))
 
+        if resource == "/admin/users/batch-delete" and method == "POST":
+            return batch_delete_users(body.get("userIds", []))
+
         if resource == "/admin/users/{userId}/disable" and method == "PUT":
             return toggle_user(path_params.get("userId"), disable=True)
 
@@ -364,6 +443,9 @@ def lambda_handler(event, context):
             if method == "POST":
                 return create_book_admin(body, auth)
 
+        if resource == "/admin/books/batch-delete" and method == "POST":
+            return batch_delete_books(body.get("bookIds", []))
+
         if resource == "/admin/books/{bookId}":
             if method == "PUT":
                 return update_book_admin(path_params.get("bookId"), body)
@@ -375,6 +457,9 @@ def lambda_handler(event, context):
                 return list_all_requests()
             if method == "POST":
                 return create_request_admin(body, auth)
+
+        if resource == "/admin/requests/batch-delete" and method == "POST":
+            return batch_delete_requests(body.get("requestIds", []))
 
         if resource == "/admin/requests/{requestId}":
             if method == "PUT":
