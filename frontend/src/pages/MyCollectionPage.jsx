@@ -49,31 +49,19 @@ export function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuper
     return () => { alive = false; };
   }, [userId]);
 
-  if (!currentUser) {
-    return (
-      <div className="page fade-in">
-        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 500, margin: "40px auto" }}>
-          <Lock size={44} style={{ color: "#ffcd5b", margin: "0 auto 16px" }} />
-          <h2>Sign In to Access Your Bookshelf</h2>
-          <p style={{ color: "#a1a1aa", fontSize: 14, marginTop: 8, marginBottom: 20 }}>
-            Your personal collection is private and encrypted to your account.
-          </p>
-          <button className="btn btn-primary" onClick={() => onOpenAuth("signin")}>
-            <LogIn size={16} /> Sign In
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const filteredBooks = books.filter((b) => {
+  // Both of these must run on every render: they sit above the signed-out
+  // early return so the hook count stays constant. Previously the useMemo
+  // below the return added a 19th hook once currentUser resolved, which
+  // crashed the whole app with "Rendered more hooks than during the
+  // previous render" on every signed-in visit.
+  const filteredBooks = useMemo(() => books.filter((b) => {
     const q = searchQuery.toLowerCase();
     return (
       (b.title || "").toLowerCase().includes(q) ||
       (b.author || "").toLowerCase().includes(q) ||
       (b.seriesName || "").toLowerCase().includes(q)
     );
-  });
+  }), [books, searchQuery]);
 
   // Group books by Series
   const seriesGroups = useMemo(() => {
@@ -97,6 +85,24 @@ export function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuper
     return { groups, standalones };
   }, [filteredBooks]);
 
+  if (!currentUser) {
+    return (
+      <div className="page fade-in">
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 500, margin: "40px auto" }}>
+          <Lock size={44} style={{ color: "#ffcd5b", margin: "0 auto 16px" }} />
+          <h2>Sign In to Access Your Bookshelf</h2>
+          <p style={{ color: "#a1a1aa", fontSize: 14, marginTop: 8, marginBottom: 20 }}>
+            Your personal collection is private and encrypted to your account.
+          </p>
+          <button className="btn btn-primary" onClick={() => onOpenAuth("signin")}>
+            <LogIn size={16} /> Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div className="page fade-in">
       {/* BANNER */}
@@ -105,16 +111,23 @@ export function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuper
           <Library size={14} color="#ffcd5b" style={{ flexShrink: 0 }} />
           <span>{books.length} {books.length === 1 ? "volume" : "volumes"} in your personal collection</span>
         </div>
-        <div className="playbooks-banner-link" onClick={() => navigate("/upload?visibility=private")}>
+        <button
+          type="button"
+          className="playbooks-banner-link"
+          onClick={() => navigate("/upload?visibility=private")}
+          style={{ background: "none", border: "none", fontFamily: "inherit", fontSize: "inherit" }}
+        >
           Add Book
-        </div>
+        </button>
       </div>
 
       {/* VIEW TABS */}
-      <div className="gplay-tabs-row">
+      <div className="gplay-tabs-row" role="tablist">
         <button
           className={`gplay-tab-btn ${activeTab === "all" ? "active" : ""}`}
           onClick={() => setActiveTab("all")}
+          role="tab"
+          aria-selected={activeTab === "all"}
         >
           All Volumes
           {activeTab === "all" && <div className="gplay-tab-indicator" />}
@@ -122,6 +135,8 @@ export function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuper
         <button
           className={`gplay-tab-btn ${activeTab === "series" ? "active" : ""}`}
           onClick={() => setActiveTab("series")}
+          role="tab"
+          aria-selected={activeTab === "series"}
         >
           By Series
           {activeTab === "series" && <div className="gplay-tab-indicator" />}
