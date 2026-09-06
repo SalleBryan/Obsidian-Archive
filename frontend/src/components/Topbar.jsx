@@ -18,9 +18,14 @@ export function Topbar({ searchQuery, setSearchQuery, notifications = [], onNoti
     <>
       {/* DESKTOP STICKY TOPBAR */}
       <header className="topbar">
-        <div className="topbar-brand" onClick={() => navigate("/library")}>
+        <button
+          type="button"
+          className="topbar-brand"
+          onClick={() => navigate("/library")}
+          style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer" }}
+        >
           <BookOpen size={22} /> Obsidian
-        </div>
+        </button>
 
         <div className="topbar-search">
           <Search className="topbar-search-icon" size={18} />
@@ -57,12 +62,15 @@ export function Topbar({ searchQuery, setSearchQuery, notifications = [], onNoti
               </button>
 
               {/* USER PILL */}
-              <div
+              <button
+                type="button"
                 className="user-nav-pill"
                 onClick={() => {
                   setUserMenuOpen(!userMenuOpen);
                   setNotifMenuOpen(false);
                 }}
+                aria-haspopup="true"
+                aria-expanded={userMenuOpen}
               >
                 <div className="user-nav-avatar">
                   {currentUser.name.charAt(0).toUpperCase()}
@@ -70,7 +78,7 @@ export function Topbar({ searchQuery, setSearchQuery, notifications = [], onNoti
                 <div className="user-nav-name">{currentUser.name}</div>
                 {isSuperAdmin && <span className="admin-badge">Admin</span>}
                 <ChevronDown size={14} color="#a1a1aa" className="user-nav-chevron" />
-              </div>
+              </button>
             </>
           ) : (
             <button
@@ -94,16 +102,21 @@ export function Topbar({ searchQuery, setSearchQuery, notifications = [], onNoti
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           {currentUser ? (
-            <div
+            <button
+              type="button"
               className="search-pill-avatar"
               onClick={() => {
                 setUserMenuOpen(!userMenuOpen);
                 setNotifMenuOpen(false);
               }}
               title={currentUser.name}
+              aria-label={currentUser.name}
+              aria-haspopup="true"
+              aria-expanded={userMenuOpen}
+              style={{ border: "none", fontFamily: "inherit" }}
             >
               {currentUser.name.charAt(0).toUpperCase()}
-            </div>
+            </button>
           ) : (
             <button className="search-pill-signin" onClick={() => openAuth("signin")}>
               <LogIn size={13} /> Sign In

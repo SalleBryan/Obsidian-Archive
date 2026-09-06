@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, CheckCircle2, Circle, Eye, EyeOff } from "lucide-react";
 import { resendSignUpCode } from "aws-amplify/auth";
@@ -21,11 +21,12 @@ const Divider = () => (
   </div>
 );
 
-function PasswordInput({ value, onChange, placeholder }) {
+function PasswordInput({ value, onChange, placeholder, id }) {
   const [visible, setVisible] = useState(false);
   return (
     <div style={{ position: "relative" }}>
       <input
+        id={id}
         type={visible ? "text" : "password"}
         required
         placeholder={placeholder || "••••••••"}
@@ -36,12 +37,12 @@ function PasswordInput({ value, onChange, placeholder }) {
       <button
         type="button"
         onClick={() => setVisible(v => !v)}
+        aria-label={visible ? "Hide password" : "Show password"}
         style={{
           position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
           background: "none", border: "none", cursor: "pointer", color: "#71717a", padding: 0,
           display: "flex", alignItems: "center"
         }}
-        tabIndex={-1}
       >
         {visible ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
@@ -58,6 +59,50 @@ export function AuthModal() {
   } = useAuth();
 
   const [form, setForm] = useState({ email: "", password: "", name: "", code: "", newPassword: "" });
+  const modalRef = useRef(null);
+  const previousFocusRef = useRef(null);
+
+  const getFocusable = () => {
+    const node = modalRef.current;
+    if (!node) return [];
+    return Array.from(
+      node.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+    );
+  };
+
+  useEffect(() => {
+    if (!authModalOpen) return;
+    previousFocusRef.current = document.activeElement;
+    const focusable = getFocusable();
+    if (focusable.length) focusable[0].focus();
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        closeAuth();
+        return;
+      }
+      if (e.key === "Tab") {
+        const items = getFocusable();
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      if (previousFocusRef.current && previousFocusRef.current.focus) {
+        previousFocusRef.current.focus();
+      }
+    };
+  }, [authModalOpen, closeAuth]);
 
   const pass = form.password || "";
   const policyChecks = {
@@ -115,10 +160,14 @@ export function AuthModal() {
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.92, opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auth-modal-title"
+            ref={modalRef}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: "#ffcd5b" }}>{title}</h2>
-              <button className="icon-btn" onClick={closeAuth}><X size={20} /></button>
+              <h2 id="auth-modal-title" style={{ fontSize: 22, fontWeight: 800, color: "#ffcd5b" }}>{title}</h2>
+              <button className="icon-btn" onClick={closeAuth} aria-label="Close dialog"><X size={20} /></button>
             </div>
 
             {authError && (
@@ -141,27 +190,28 @@ export function AuthModal() {
                 <Divider />
                 <form onSubmit={onSubmitSignIn}>
                   <div className="field">
-                    <label>Email Address</label>
-                    <input type="email" required placeholder="name@example.com" value={form.email} onChange={f("email")} />
+                    <label htmlFor="signin-email">Email Address</label>
+                    <input id="signin-email" type="email" required placeholder="name@example.com" value={form.email} onChange={f("email")} />
                   </div>
                   <div className="field">
-                    <label style={{ display: "flex", justifyContent: "space-between" }}>
-                      Password
-                      <span
-                        style={{ fontSize: 12, color: "#ffcd5b", cursor: "pointer", fontWeight: 600 }}
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <label htmlFor="signin-password">Password</label>
+                      <button
+                        type="button"
+                        style={{ background: "none", border: "none", padding: 0, fontFamily: "inherit", fontSize: 12, color: "#ffcd5b", cursor: "pointer", fontWeight: 600 }}
                         onClick={() => { setAuthMode("forgot"); setAuthError(""); }}
                       >
                         Forgot password?
-                      </span>
-                    </label>
-                    <PasswordInput value={form.password} onChange={f("password")} />
+                      </button>
+                    </div>
+                    <PasswordInput id="signin-password" value={form.password} onChange={f("password")} />
                   </div>
                   <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} disabled={authLoading}>
                     {authLoading ? <Loader2 size={16} className="spin" /> : "Sign In"}
                   </button>
                   <p style={{ textAlign: "center", fontSize: 13, color: "#a1a1aa", marginTop: 16 }}>
                     Don't have an account?{" "}
-                    <span style={{ color: "#ffcd5b", cursor: "pointer", fontWeight: 700 }} onClick={() => { setAuthMode("signup"); setAuthError(""); }}>Sign Up</span>
+                    <button type="button" style={{ background: "none", border: "none", padding: 0, fontFamily: "inherit", fontSize: "inherit", color: "#ffcd5b", cursor: "pointer", fontWeight: 700 }} onClick={() => { setAuthMode("signup"); setAuthError(""); }}>Sign Up</button>
                   </p>
                 </form>
               </>
@@ -181,16 +231,16 @@ export function AuthModal() {
                 <Divider />
                 <form onSubmit={onSubmitSignUp}>
                   <div className="field">
-                    <label>Your Name</label>
-                    <input type="text" required placeholder="Bryan Salle" value={form.name} onChange={f("name")} />
+                    <label htmlFor="signup-name">Your Name</label>
+                    <input id="signup-name" type="text" required placeholder="Bryan Salle" value={form.name} onChange={f("name")} />
                   </div>
                   <div className="field">
-                    <label>Email Address</label>
-                    <input type="email" required placeholder="name@example.com" value={form.email} onChange={f("email")} />
+                    <label htmlFor="signup-email">Email Address</label>
+                    <input id="signup-email" type="email" required placeholder="name@example.com" value={form.email} onChange={f("email")} />
                   </div>
                   <div className="field">
-                    <label>Password</label>
-                    <PasswordInput value={form.password} onChange={f("password")} placeholder="Create secure password" />
+                    <label htmlFor="signup-password">Password</label>
+                    <PasswordInput id="signup-password" value={form.password} onChange={f("password")} placeholder="Create secure password" />
                   </div>
                   <div className="policy-checklist">
                     <div style={{ fontSize: 11, fontWeight: 800, color: "#ffcd5b", textTransform: "uppercase" }}>Password Checklist:</div>
@@ -209,7 +259,7 @@ export function AuthModal() {
                   </button>
                   <p style={{ textAlign: "center", fontSize: 13, color: "#a1a1aa", marginTop: 16 }}>
                     Already have an account?{" "}
-                    <span style={{ color: "#ffcd5b", cursor: "pointer", fontWeight: 700 }} onClick={() => { setAuthMode("signin"); setAuthError(""); }}>Sign In</span>
+                    <button type="button" style={{ background: "none", border: "none", padding: 0, fontFamily: "inherit", fontSize: "inherit", color: "#ffcd5b", cursor: "pointer", fontWeight: 700 }} onClick={() => { setAuthMode("signin"); setAuthError(""); }}>Sign In</button>
                   </p>
                 </form>
               </>
@@ -221,14 +271,16 @@ export function AuthModal() {
                   Enter the 6-digit confirmation code sent to <strong>{form.email}</strong>.
                 </p>
                 <div className="field">
-                  <label>Confirmation Code</label>
-                  <input type="text" required placeholder="123456" value={form.code} onChange={f("code")} />
+                  <label htmlFor="confirm-code">Confirmation Code</label>
+                  <input id="confirm-code" type="text" required placeholder="123456" value={form.code} onChange={f("code")} />
                 </div>
                 <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} disabled={authLoading}>
                   {authLoading ? <Loader2 size={16} className="spin" /> : "Verify Code & Continue"}
                 </button>
-                <p style={{ textAlign: "center", fontSize: 12, color: "#71717a", marginTop: 16, cursor: "pointer" }} onClick={() => resendSignUpCode({ username: form.email })}>
-                  Didn't receive code? Resend
+                <p style={{ textAlign: "center", fontSize: 12, marginTop: 16 }}>
+                  <button type="button" style={{ background: "none", border: "none", padding: 0, fontFamily: "inherit", fontSize: "inherit", color: "#71717a", cursor: "pointer" }} onClick={() => resendSignUpCode({ username: form.email })}>
+                    Didn't receive code? Resend
+                  </button>
                 </p>
               </form>
             )}
@@ -239,14 +291,14 @@ export function AuthModal() {
                   Enter your email and we'll send a reset code.
                 </p>
                 <div className="field">
-                  <label>Email Address</label>
-                  <input type="email" required placeholder="name@example.com" value={form.email} onChange={f("email")} />
+                  <label htmlFor="forgot-email">Email Address</label>
+                  <input id="forgot-email" type="email" required placeholder="name@example.com" value={form.email} onChange={f("email")} />
                 </div>
                 <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} disabled={authLoading}>
                   {authLoading ? <Loader2 size={16} className="spin" /> : "Send Reset Code"}
                 </button>
-                <p style={{ textAlign: "center", fontSize: 13, color: "#a1a1aa", marginTop: 16 }}>
-                  <span style={{ color: "#ffcd5b", cursor: "pointer", fontWeight: 700 }} onClick={() => { setAuthMode("signin"); setAuthError(""); }}>← Back to Sign In</span>
+                <p style={{ textAlign: "center", fontSize: 13, marginTop: 16 }}>
+                  <button type="button" style={{ background: "none", border: "none", padding: 0, fontFamily: "inherit", fontSize: "inherit", color: "#ffcd5b", cursor: "pointer", fontWeight: 700 }} onClick={() => { setAuthMode("signin"); setAuthError(""); }}>← Back to Sign In</button>
                 </p>
               </form>
             )}
@@ -257,12 +309,12 @@ export function AuthModal() {
                   Enter the code sent to <strong>{form.email}</strong> and your new password.
                 </p>
                 <div className="field">
-                  <label>Reset Code</label>
-                  <input type="text" required placeholder="123456" value={form.code} onChange={f("code")} />
+                  <label htmlFor="reset-code">Reset Code</label>
+                  <input id="reset-code" type="text" required placeholder="123456" value={form.code} onChange={f("code")} />
                 </div>
                 <div className="field">
-                  <label>New Password</label>
-                  <PasswordInput value={form.newPassword} onChange={f("newPassword")} placeholder="New secure password" />
+                  <label htmlFor="reset-new-password">New Password</label>
+                  <PasswordInput id="reset-new-password" value={form.newPassword} onChange={f("newPassword")} placeholder="New secure password" />
                 </div>
                 <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} disabled={authLoading}>
                   {authLoading ? <Loader2 size={16} className="spin" /> : "Reset Password"}

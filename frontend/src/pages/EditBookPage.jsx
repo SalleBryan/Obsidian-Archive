@@ -62,8 +62,9 @@ export function EditBookPage({ currentUser, isSuperAdmin }) {
 
       <form onSubmit={handleUpdate} className="editor-card glass-panel" style={{ maxWidth: 640 }}>
         <div className="field">
-          <label>Book Title</label>
+          <label htmlFor="edit-book-title">Book Title</label>
           <input
+            id="edit-book-title"
             type="text"
             required
             value={formData.title}
@@ -71,8 +72,9 @@ export function EditBookPage({ currentUser, isSuperAdmin }) {
           />
         </div>
         <div className="field">
-          <label>Author</label>
+          <label htmlFor="edit-book-author">Author</label>
           <input
+            id="edit-book-author"
             type="text"
             value={formData.author}
             onChange={(e) => setFormData({ ...formData, author: e.target.value })}
@@ -87,6 +89,7 @@ export function EditBookPage({ currentUser, isSuperAdmin }) {
                 <button
                   key={c}
                   type="button"
+                  aria-pressed={checked}
                   onClick={() => {
                     const cur = formData.categories || [];
                     const next = checked ? cur.filter(x => x !== c) : [...cur, c];
@@ -108,8 +111,9 @@ export function EditBookPage({ currentUser, isSuperAdmin }) {
           </div>
         </div>
         <div className="field">
-          <label>Privacy</label>
+          <label htmlFor="edit-book-visibility">Privacy</label>
           <select
+            id="edit-book-visibility"
             value={formData.visibility}
             onChange={(e) => setFormData({ ...formData, visibility: e.target.value })}
           >
@@ -120,8 +124,9 @@ export function EditBookPage({ currentUser, isSuperAdmin }) {
 
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
           <div className="field">
-            <label>Series Title (Optional)</label>
+            <label htmlFor="edit-book-series-name">Series Title (Optional)</label>
             <input
+              id="edit-book-series-name"
               type="text"
               placeholder="e.g. Red Rising Saga"
               value={formData.seriesName}
@@ -129,8 +134,9 @@ export function EditBookPage({ currentUser, isSuperAdmin }) {
             />
           </div>
           <div className="field">
-            <label>Book #</label>
+            <label htmlFor="edit-book-series-order">Book #</label>
             <input
+              id="edit-book-series-order"
               type="number"
               placeholder="1"
               value={formData.seriesOrder}
@@ -140,8 +146,9 @@ export function EditBookPage({ currentUser, isSuperAdmin }) {
         </div>
 
         <div className="field">
-          <label>Synopsis</label>
+          <label htmlFor="edit-book-description">Synopsis</label>
           <textarea
+            id="edit-book-description"
             rows={4}
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}

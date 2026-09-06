@@ -16,13 +16,18 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div>
-        <div className="sidebar-brand" onClick={() => navigate("/library")}>
+        <button
+          type="button"
+          className="sidebar-brand"
+          onClick={() => navigate("/library")}
+          style={{ background: "transparent", border: "none", width: "100%", textAlign: "left" }}
+        >
           <div className="sidebar-brand-icon"><BookOpen size={24} /></div>
           <div>
             <div className="sidebar-brand-title">Obsidian</div>
             <div className="sidebar-brand-sub">For Book Lovers</div>
           </div>
-        </div>
+        </button>
 
         <nav className="sidebar-nav">
           <Link

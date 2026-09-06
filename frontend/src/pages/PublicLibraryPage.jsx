@@ -74,12 +74,14 @@ export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSupe
           <Sparkles size={14} color="#ffcd5b" style={{ flexShrink: 0 }} />
           <span>Obsidian Archive: Read community books online in EPUB & PDF</span>
         </div>
-        <div
+        <button
+          type="button"
           className="playbooks-banner-link"
           onClick={() => currentUser ? navigate("/upload?visibility=public") : onOpenAuth("signin")}
+          style={{ background: "none", border: "none", fontFamily: "inherit", fontSize: "inherit" }}
         >
           Contribute
-        </div>
+        </button>
       </div>
 
       {/* SEARCH / GENRE OVERRIDE VIEW */}
@@ -142,10 +144,12 @@ export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSupe
           )}
 
           {/* VIEW TABS */}
-          <div className="gplay-tabs-row">
+          <div className="gplay-tabs-row" role="tablist">
             <button
               className={`gplay-tab-btn ${activeTab === "ebooks" ? "active" : ""}`}
               onClick={() => setActiveTab("ebooks")}
+              role="tab"
+              aria-selected={activeTab === "ebooks"}
             >
               Ebooks
               {activeTab === "ebooks" && <div className="gplay-tab-indicator" />}
@@ -153,6 +157,8 @@ export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSupe
             <button
               className={`gplay-tab-btn ${activeTab === "series" ? "active" : ""}`}
               onClick={() => setActiveTab("series")}
+              role="tab"
+              aria-selected={activeTab === "series"}
             >
               Series & Sagas
               {activeTab === "series" && <div className="gplay-tab-indicator" />}
@@ -160,6 +166,8 @@ export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSupe
             <button
               className={`gplay-tab-btn ${activeTab === "genres" ? "active" : ""}`}
               onClick={() => setActiveTab("genres")}
+              role="tab"
+              aria-selected={activeTab === "genres"}
             >
               Genres & Categories
               {activeTab === "genres" && <div className="gplay-tab-indicator" />}
@@ -198,6 +206,7 @@ export function PublicLibraryPage({ searchQuery, currentUser, onOpenAuth, isSupe
                     key={cat}
                     className={`cat-chip ${filterCat === cat ? "active" : ""}`}
                     onClick={() => setFilterCat(cat)}
+                    aria-pressed={filterCat === cat}
                   >
                     {cat}
                   </button>

@@ -115,6 +115,9 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
         canvas.style.borderRadius = "4px";
         canvas.style.boxShadow = "0 8px 40px rgba(0,0,0,0.45)";
         canvas.style.background = theme === "sepia" ? "#fbf0d9" : "#fff";
+        // TODO: replace this with pdf.js's text-layer overlay for real screen-reader support.
+        canvas.setAttribute("role", "img");
+        canvas.setAttribute("aria-label", `Page ${pn} of ${pdf.numPages}`);
         containerRef.current?.appendChild(canvas);
 
         const task = page.render({ canvasContext: canvas.getContext("2d"), viewport: vp });
@@ -183,6 +186,7 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
             style={{ position: "static", flexShrink: 0, display: isMobile ? "none" : "flex" }}
             disabled={pageNum <= 1}
             title="Previous page (← Arrow Key)"
+            aria-label="Previous page"
           >
             <ArrowLeft size={18} />
           </button>
@@ -202,6 +206,7 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
             style={{ position: "static", flexShrink: 0, display: isMobile ? "none" : "flex" }}
             disabled={pageNum >= numPages}
             title="Next page (→ Arrow Key)"
+            aria-label="Next page"
           >
             <ArrowLeft size={18} style={{ transform: "rotate(180deg)" }} />
           </button>
@@ -225,7 +230,7 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
 
       {!loading && numPages > 0 && (
         <div style={{ height: 44, background: panelBg, display: "flex", alignItems: "center", gap: 12, padding: "0 16px", flexShrink: 0, borderTop: "1px solid rgba(128,128,128,0.15)" }}>
-          <button onClick={prevPage} disabled={pageNum <= 1} style={{ background: "transparent", border: "none", color: panelFg, cursor: pageNum <= 1 ? "not-allowed" : "pointer", opacity: pageNum <= 1 ? 0.4 : 1, display: "flex", alignItems: "center", padding: 0 }}>
+          <button onClick={prevPage} disabled={pageNum <= 1} aria-label="Previous page" style={{ background: "transparent", border: "none", color: panelFg, cursor: pageNum <= 1 ? "not-allowed" : "pointer", opacity: pageNum <= 1 ? 0.4 : 1, display: "flex", alignItems: "center", padding: 0 }}>
             <ArrowLeft size={16} />
           </button>
 
@@ -235,10 +240,11 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
             max={sliderMax}
             value={pageNum}
             onChange={(e) => setPdfPage(Number(e.target.value))}
+            aria-label="Jump to page"
             style={{ flex: 1, accentColor: "#ffcd5b", cursor: "pointer" }}
           />
 
-          <button onClick={nextPage} disabled={pageNum >= numPages} style={{ background: "transparent", border: "none", color: panelFg, cursor: pageNum >= numPages ? "not-allowed" : "pointer", opacity: pageNum >= numPages ? 0.4 : 1, display: "flex", alignItems: "center", padding: 0 }}>
+          <button onClick={nextPage} disabled={pageNum >= numPages} aria-label="Next page" style={{ background: "transparent", border: "none", color: panelFg, cursor: pageNum >= numPages ? "not-allowed" : "pointer", opacity: pageNum >= numPages ? 0.4 : 1, display: "flex", alignItems: "center", padding: 0 }}>
             <ArrowLeft size={16} style={{ transform: "rotate(180deg)" }} />
           </button>
 
