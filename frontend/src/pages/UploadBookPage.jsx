@@ -137,10 +137,10 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
       {uploading && (
         <div className="editor-card glass-panel" style={{ marginBottom: 28 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#ffcd5b" }}>{statusText}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#ffcd5b" }} aria-live="polite">{statusText}</span>
             <span style={{ fontSize: 13, fontWeight: 800 }}>{progress}%</span>
           </div>
-          <div className="progress-container">
+          <div className="progress-container" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
             <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
           </div>
         </div>
@@ -151,8 +151,9 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
           {/* Metadata */}
           <div className="editor-card glass-panel">
             <div className="field">
-              <label>Book Title *</label>
+              <label htmlFor="upload-title">Book Title *</label>
               <input
+                id="upload-title"
                 type="text"
                 required
                 placeholder="e.g. Golden Son"
@@ -162,8 +163,9 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
               />
             </div>
             <div className="field">
-              <label>Author</label>
+              <label htmlFor="upload-author">Author</label>
               <input
+                id="upload-author"
                 type="text"
                 placeholder="e.g. Pierce Brown"
                 value={formData.author}
@@ -181,6 +183,7 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
                       key={c}
                       type="button"
                       disabled={uploading}
+                      aria-pressed={checked}
                       onClick={() => {
                         const next = checked
                           ? formData.categories.filter(x => x !== c)
@@ -203,8 +206,9 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
               </div>
             </div>
             <div className="field">
-              <label>Privacy</label>
+              <label htmlFor="upload-visibility">Privacy</label>
               <select
+                id="upload-visibility"
                 value={formData.visibility}
                 onChange={(e) => setFormData({ ...formData, visibility: e.target.value })}
                 disabled={uploading}
@@ -230,8 +234,9 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
               {formData.isSeries && (
                 <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
                   <div className="field" style={{ marginBottom: 0 }}>
-                    <label>Series Title</label>
+                    <label htmlFor="upload-series-name">Series Title</label>
                     <input
+                      id="upload-series-name"
                       type="text"
                       placeholder="e.g. Red Rising Saga"
                       value={formData.seriesName}
@@ -240,8 +245,9 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
                     />
                   </div>
                   <div className="field" style={{ marginBottom: 0 }}>
-                    <label>Book #</label>
+                    <label htmlFor="upload-series-order">Book #</label>
                     <input
+                      id="upload-series-order"
                       type="number"
                       min={1}
                       value={formData.seriesOrder}
@@ -254,8 +260,9 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
             </div>
 
             <div className="field">
-              <label>Synopsis</label>
+              <label htmlFor="upload-description">Synopsis</label>
               <textarea
+                id="upload-description"
                 rows={3}
                 placeholder="What is this book about?…"
                 value={formData.description}
@@ -268,9 +275,10 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
           {/* Files */}
           <div className="editor-card glass-panel" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div className="field">
-              <label>Cover Image (Optional)</label>
+              <label htmlFor="upload-cover-file">Cover Image (Optional)</label>
               <div className="upload-zone">
                 <input
+                  id="upload-cover-file"
                   type="file"
                   accept="image/*"
                   onChange={(e) => {
@@ -295,9 +303,10 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
             </div>
 
             <div className="field">
-              <label>Book Document (EPUB or PDF up to 100MB)</label>
+              <label htmlFor="upload-book-file">Book Document (EPUB or PDF up to 100MB)</label>
               <div className="upload-zone" style={{ minHeight: 120 }}>
                 <input
+                  id="upload-book-file"
                   type="file"
                   accept=".epub,.pdf,.mobi,.txt"
                   onChange={(e) => {

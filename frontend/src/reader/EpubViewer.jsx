@@ -274,6 +274,7 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
           <button
             onClick={searchOpen ? closeSearch : openSearch}
             title="Search in book (Ctrl+F)"
+            aria-label="Search in book"
             style={{
               background: searchOpen ? "rgba(255,205,91,0.18)" : "transparent",
               border: "none", borderRadius: 6, padding: "4px 6px",
@@ -311,7 +312,7 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
               >
                 {searchLoading ? "…" : "Find"}
               </button>
-              <button onClick={closeSearch} style={{ background: "transparent", border: "none", color: panelFg, cursor: "pointer", display: "flex", alignItems: "center" }}>
+              <button onClick={closeSearch} aria-label="Close search" style={{ background: "transparent", border: "none", color: panelFg, cursor: "pointer", display: "flex", alignItems: "center" }}>
                 <X size={15} />
               </button>
             </div>
@@ -353,7 +354,7 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <span style={{ fontSize: 14, fontWeight: 800, color: "#ffcd5b" }}>Table of Contents</span>
-              <button className="icon-btn" onClick={() => setTocOpen(false)} style={{ width: 28, height: 28, color: panelFg }}><X size={14} /></button>
+              <button className="icon-btn" onClick={() => setTocOpen(false)} aria-label="Close table of contents" style={{ width: 28, height: 28, color: panelFg }}><X size={14} /></button>
             </div>
             {toc.length === 0 ? (
               <p style={{ fontSize: 12, opacity: 0.6, color: panelFg }}>No chapters listed in book metadata.</p>
@@ -362,6 +363,14 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
                 <div
                   key={idx}
                   onClick={() => goTo(item.href)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      goTo(item.href);
+                    }
+                  }}
                   style={{ padding: "10px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 4, transition: "background 0.15s", color: panelFg }}
                   onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,205,91,0.15)"}
                   onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
@@ -376,7 +385,7 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
 
       <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
         {!isMobile && (
-          <button onClick={prev} className="reader-nav-btn" style={{ left: 8 }} title="Previous page  (← Arrow Key)">
+          <button onClick={prev} className="reader-nav-btn" style={{ left: 8 }} title="Previous page  (← Arrow Key)" aria-label="Previous page">
             <ArrowLeft size={18} />
           </button>
         )}
@@ -384,7 +393,7 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
         <div ref={viewerRef} className="epub-canvas-container" />
 
         {!isMobile && (
-          <button onClick={next} className="reader-nav-btn" style={{ right: 8 }} title="Next page  (→ Arrow Key)">
+          <button onClick={next} className="reader-nav-btn" style={{ right: 8 }} title="Next page  (→ Arrow Key)" aria-label="Next page">
             <ArrowLeft size={18} style={{ transform: "rotate(180deg)" }} />
           </button>
         )}

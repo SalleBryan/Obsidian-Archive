@@ -99,6 +99,15 @@ function AppShell() {
 
   return (
     <>
+      <a
+        href="#main-content"
+        className="skip-link"
+        style={{ position: "absolute", left: -9999, top: 0, zIndex: 10000, background: "#ffcd5b", color: "#0f1115", padding: "10px 16px", borderRadius: 6, fontWeight: 700 }}
+        onFocus={(e) => { e.currentTarget.style.left = "8px"; e.currentTarget.style.top = "8px"; }}
+        onBlur={(e) => { e.currentTarget.style.left = "-9999px"; e.currentTarget.style.top = "0"; }}
+      >
+        Skip to content
+      </a>
       <div className="shell">
         <Sidebar />
 
@@ -111,70 +120,72 @@ function AppShell() {
             onNotificationRead={handleNotificationRead}
           />
 
-          <Routes>
-            <Route path="/" element={<Navigate to="/library" replace />} />
-            <Route
-              path="/library"
-              element={
-                <PublicLibraryPage
-                  searchQuery={searchQuery}
-                  currentUser={currentUser}
-                  onOpenAuth={openAuth}
-                  isSuperAdmin={isSuperAdmin}
-                />
-              }
-            />
-            <Route
-              path="/collection"
-              element={
-                <MyCollectionPage
-                  searchQuery={searchQuery}
-                  currentUser={currentUser}
-                  onOpenAuth={openAuth}
-                  isSuperAdmin={isSuperAdmin}
-                />
-              }
-            />
-            <Route
-              path="/requests"
-              element={
-                <RequestsBoardPage
-                  currentUser={currentUser}
-                  onOpenAuth={openAuth}
-                  isSuperAdmin={isSuperAdmin}
-                />
-              }
-            />
-            <Route
-              path="/upload"
-              element={<UploadBookPage currentUser={currentUser} onOpenAuth={openAuth} />}
-            />
-            <Route
-              path="/books/:bookId"
-              element={
-                <BookDetailPage
-                  currentUser={currentUser}
-                  onOpenAuth={openAuth}
-                  isSuperAdmin={isSuperAdmin}
-                  authChecked={authChecked}
-                />
-              }
-            />
-            <Route
-              path="/books/:bookId/edit"
-              element={<EditBookPage currentUser={currentUser} isSuperAdmin={isSuperAdmin} />}
-            />
-            <Route
-              path="/profile"
-              element={
-                <UserProfilePage
-                  currentUser={currentUser}
-                  onOpenAuth={openAuth}
-                  isSuperAdmin={isSuperAdmin}
-                />
-              }
-            />
-          </Routes>
+          <main id="main-content">
+            <Routes>
+              <Route path="/" element={<Navigate to="/library" replace />} />
+              <Route
+                path="/library"
+                element={
+                  <PublicLibraryPage
+                    searchQuery={searchQuery}
+                    currentUser={currentUser}
+                    onOpenAuth={openAuth}
+                    isSuperAdmin={isSuperAdmin}
+                  />
+                }
+              />
+              <Route
+                path="/collection"
+                element={
+                  <MyCollectionPage
+                    searchQuery={searchQuery}
+                    currentUser={currentUser}
+                    onOpenAuth={openAuth}
+                    isSuperAdmin={isSuperAdmin}
+                  />
+                }
+              />
+              <Route
+                path="/requests"
+                element={
+                  <RequestsBoardPage
+                    currentUser={currentUser}
+                    onOpenAuth={openAuth}
+                    isSuperAdmin={isSuperAdmin}
+                  />
+                }
+              />
+              <Route
+                path="/upload"
+                element={<UploadBookPage currentUser={currentUser} onOpenAuth={openAuth} />}
+              />
+              <Route
+                path="/books/:bookId"
+                element={
+                  <BookDetailPage
+                    currentUser={currentUser}
+                    onOpenAuth={openAuth}
+                    isSuperAdmin={isSuperAdmin}
+                    authChecked={authChecked}
+                  />
+                }
+              />
+              <Route
+                path="/books/:bookId/edit"
+                element={<EditBookPage currentUser={currentUser} isSuperAdmin={isSuperAdmin} />}
+              />
+              <Route
+                path="/profile"
+                element={
+                  <UserProfilePage
+                    currentUser={currentUser}
+                    onOpenAuth={openAuth}
+                    isSuperAdmin={isSuperAdmin}
+                  />
+                }
+              />
+            </Routes>
+          </main>
         </div>
 
         <MobileBottomNav />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Users, BookOpen, FileQuestion, ShieldAlert, Trash2, Ban, CheckCircle2, XCircle, ArrowLeft, Pencil, Plus, X, Eye, EyeOff, Search, ChevronLeft, ChevronRight, Download, Megaphone } from "lucide-react";
 import { api } from "../api";
@@ -23,7 +23,7 @@ function StatCard({ label, value, icon: Icon, accent = "#ffcd5b" }) {
 }
 
 function Badge({ children, color = "#71717a" }) {
-  return <span className="admin-badge" style={{ "--c": color }}>{children}</span>;
+  return <span className="admin-status-badge" style={{ "--c": color }}>{children}</span>;
 }
 
 function IconBtn({ color, children, ...props }) {
@@ -134,6 +134,52 @@ function FormModal({ title, fields, initial, onSubmit, onClose }) {
   const [values, setValues] = useState(initial || {});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const modalRef = useRef(null);
+  const previousFocusRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const titleId = "admin-modal-title";
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement;
+    const getFocusable = () => {
+      const node = modalRef.current;
+      if (!node) return [];
+      return Array.from(
+        node.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+      );
+    };
+    const focusable = getFocusable();
+    if (focusable.length) focusable[0].focus();
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      if (e.key === "Tab") {
+        const items = getFocusable();
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      if (previousFocusRef.current && previousFocusRef.current.focus) {
+        previousFocusRef.current.focus();
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -151,18 +197,26 @@ function FormModal({ title, fields, initial, onSubmit, onClose }) {
 
   return (
     <div className="admin-modal-overlay" onClick={onClose}>
-      <div className="admin-modal-box" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="admin-modal-box"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        ref={modalRef}
+      >
         <div className="admin-modal-header">
-          <h3 className="admin-modal-title">{title}</h3>
-          <button className="admin-modal-close" onClick={onClose}><X size={18} /></button>
+          <h3 className="admin-modal-title" id={titleId}>{title}</h3>
+          <button className="admin-modal-close" onClick={onClose} aria-label="Close dialog"><X size={18} /></button>
         </div>
         {error && <div className="admin-modal-error">{error}</div>}
         <form onSubmit={submit}>
           {fields.map((f) => (
             <div key={f.key} className="admin-field">
-              <label className="admin-field-label">{f.label}</label>
+              <label className="admin-field-label" htmlFor={`field-${f.key}`}>{f.label}</label>
               {f.type === "select" ? (
                 <select
+                  id={`field-${f.key}`}
                   className="admin-field-select"
                   value={values[f.key] ?? f.default ?? ""}
                   onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
@@ -171,6 +225,7 @@ function FormModal({ title, fields, initial, onSubmit, onClose }) {
                 </select>
               ) : (
                 <input
+                  id={`field-${f.key}`}
                   className="admin-field-input"
                   type={f.type || "text"}
                   required={f.required}
@@ -213,13 +268,14 @@ function AdminSignIn() {
 
         <form onSubmit={submit}>
           <div className="field">
-            <label>Email Address</label>
-            <input type="email" required placeholder="admin@obsidianarchive.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <label htmlFor="admin-signin-email">Email Address</label>
+            <input id="admin-signin-email" type="email" required placeholder="admin@obsidianarchive.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
           <div className="field">
-            <label>Password</label>
+            <label htmlFor="admin-signin-password">Password</label>
             <div className="admin-pass-field">
               <input
+                id="admin-signin-password"
                 type={showPass ? "text" : "password"}
                 required
                 placeholder="••••••••"
@@ -227,7 +283,7 @@ function AdminSignIn() {
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 style={{ paddingRight: 40 }}
               />
-              <button type="button" className="admin-pass-toggle" onClick={() => setShowPass(v => !v)}>
+              <button type="button" className="admin-pass-toggle" onClick={() => setShowPass(v => !v)} aria-label={showPass ? "Hide password" : "Show password"}>
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
@@ -423,11 +479,11 @@ function UsersTab() {
             <Badge color={u.enabled ? "#4ade80" : "#f87171"}>{u.enabled ? "Active" : "Disabled"}</Badge>
             <div className="admin-row-date">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : " - "}</div>
             <div className="admin-row-actions">
-              <IconBtn color="#60a5fa" onClick={() => setModal(u)}><Pencil size={12} /></IconBtn>
-              <IconBtn color={u.enabled ? "#f87171" : "#4ade80"} onClick={() => toggle(u)} disabled={busy === u.userId}>
+              <IconBtn color="#60a5fa" onClick={() => setModal(u)} aria-label={`Edit ${u.email}`}><Pencil size={12} /></IconBtn>
+              <IconBtn color={u.enabled ? "#f87171" : "#4ade80"} onClick={() => toggle(u)} disabled={busy === u.userId} aria-label={u.enabled ? `Disable ${u.email}` : `Enable ${u.email}`}>
                 {busy === u.userId ? <Loader2 size={12} className="spin" /> : u.enabled ? <Ban size={12} /> : <CheckCircle2 size={12} />}
               </IconBtn>
-              <IconBtn color="#f87171" onClick={() => del(u)} disabled={busy === u.userId}><Trash2 size={12} /></IconBtn>
+              <IconBtn color="#f87171" onClick={() => del(u)} disabled={busy === u.userId} aria-label={`Delete ${u.email}`}><Trash2 size={12} /></IconBtn>
             </div>
           </div>
         ))}
@@ -585,16 +641,16 @@ function BooksTab() {
             <div className="admin-row-actions">
               {modStatus === "pending" && (
                 <>
-                  <IconBtn color="#4ade80" onClick={() => approve(b)} disabled={busy === b.bookId} title="Approve">
+                  <IconBtn color="#4ade80" onClick={() => approve(b)} disabled={busy === b.bookId} title="Approve" aria-label={`Approve ${b.title}`}>
                     {busy === b.bookId ? <Loader2 size={12} className="spin" /> : <CheckCircle2 size={12} />}
                   </IconBtn>
-                  <IconBtn color="#f87171" onClick={() => reject(b)} disabled={busy === b.bookId} title="Reject">
+                  <IconBtn color="#f87171" onClick={() => reject(b)} disabled={busy === b.bookId} title="Reject" aria-label={`Reject ${b.title}`}>
                     <XCircle size={12} />
                   </IconBtn>
                 </>
               )}
-              <IconBtn color="#60a5fa" onClick={() => setModal(b)}><Pencil size={12} /></IconBtn>
-              <IconBtn color="#f87171" onClick={() => del(b)} disabled={busy === b.bookId}>
+              <IconBtn color="#60a5fa" onClick={() => setModal(b)} aria-label={`Edit ${b.title}`}><Pencil size={12} /></IconBtn>
+              <IconBtn color="#f87171" onClick={() => del(b)} disabled={busy === b.bookId} aria-label={`Delete ${b.title}`}>
                 {busy === b.bookId ? <Loader2 size={12} className="spin" /> : <Trash2 size={12} />}
               </IconBtn>
             </div>
@@ -720,8 +776,8 @@ function RequestsTab() {
             <Badge color={r.status === "fulfilled" ? "#4ade80" : "#ffcd5b"}>{r.status === "fulfilled" ? "Fulfilled" : "Open"}</Badge>
             <div className="admin-row-date">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : " - "}</div>
             <div className="admin-row-actions">
-              <IconBtn color="#60a5fa" onClick={() => setModal(r)}><Pencil size={12} /></IconBtn>
-              <IconBtn color="#f87171" onClick={() => del(r)} disabled={busy === r.requestId}>
+              <IconBtn color="#60a5fa" onClick={() => setModal(r)} aria-label={`Edit ${r.title}`}><Pencil size={12} /></IconBtn>
+              <IconBtn color="#f87171" onClick={() => del(r)} disabled={busy === r.requestId} aria-label={`Delete ${r.title}`}>
                 {busy === r.requestId ? <Loader2 size={12} className="spin" /> : <Trash2 size={12} />}
               </IconBtn>
             </div>
