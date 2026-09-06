@@ -108,3 +108,19 @@ export async function loadMergedReadingList(userId) {
   } catch {}
   return merged;
 }
+
+// Signing out on a shared machine should not leave the previous reader's titles
+// and positions sitting in localStorage for the next person to inspect.
+export function clearLocalReadingData(userId) {
+  if (!userId) return;
+  try {
+    const suffix = `_${userId}`;
+    const stale = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith("obsidian_")) continue;
+      if (key === readingListKey(userId) || key.endsWith(suffix)) stale.push(key);
+    }
+    stale.forEach((key) => localStorage.removeItem(key));
+  } catch {}
+}

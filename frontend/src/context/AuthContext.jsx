@@ -14,6 +14,7 @@ import {
 import { Hub } from "aws-amplify/utils";
 import { SUPER_ADMIN_EMAILS, checkIsSuperAdmin } from "../config";
 import { api } from "../api";
+import { clearLocalReadingData } from "../lib/progress";
 
 const AuthContext = createContext(null);
 
@@ -202,17 +203,21 @@ export function AuthProvider({ children }) {
   };
 
   const handleSignOut = async () => {
+    const userId = currentUser?.userId;
     await signOut();
     setCurrentUser(null);
+    clearLocalReadingData(userId);
   };
 
   const handleDeleteAccount = async () => {
     // Profile row must be removed BEFORE deleteUser() — that call invalidates
     // the current JWT immediately, so any authenticated backend call after it
     // would fail. Cognito account deletion itself signs the user out.
+    const userId = currentUser?.userId;
     try { await api.deleteProfile(); } catch {}
     await deleteUser();
     setCurrentUser(null);
+    clearLocalReadingData(userId);
   };
 
   const value = {
