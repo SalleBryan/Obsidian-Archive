@@ -17,6 +17,24 @@ BOOKS_TABLE = os.environ.get('BOOKS_TABLE')
 
 books_table = dynamodb.Table(BOOKS_TABLE) if BOOKS_TABLE else None
 
+# The content type is derived from these maps rather than taken from the request,
+# so a caller can't have S3 serve an uploaded file as text/html or image/svg+xml
+# from the public covers bucket.
+COVER_TYPES = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'webp': 'image/webp',
+}
+BOOK_TYPES = {
+    'pdf': 'application/pdf',
+    'epub': 'application/epub+zip',
+    'mobi': 'application/x-mobipocket-ebook',
+    'txt': 'text/plain',
+}
+MAX_COVER_BYTES = 5 * 1024 * 1024
+MAX_BOOK_BYTES = 100 * 1024 * 1024
+
 def lambda_handler(event, context):
     try:
         resource = event.get('resource', '')
@@ -35,10 +53,16 @@ def lambda_handler(event, context):
             if not book:
                 return respond(404, {"error": "Book not found"})
 
-            # Check Privacy & Authorization
-            if book.get('visibility') == 'private':
-                if not user_id or (book.get('ownerId') != user_id and not is_super_admin):
-                    return respond(403, {"error": "This book is in a private collection."})
+            is_owner_or_admin = bool(user_id) and (book.get('ownerId') == user_id or is_super_admin)
+
+            if book.get('visibility') == 'private' and not is_owner_or_admin:
+                return respond(403, {"error": "This book is in a private collection."})
+
+            # Pending and rejected books stay unreadable to everyone but their
+            # owner and admins, matching reader.py — otherwise rejecting a book
+            # leaves its file downloadable by anyone holding the bookId.
+            if book.get('moderationStatus', 'approved') != 'approved' and not is_owner_or_admin:
+                return respond(404, {"error": "Book not found"})
 
             file_key = book.get('fileKey')
             if not file_key:
@@ -68,13 +92,20 @@ def lambda_handler(event, context):
         body = parse_body(event)
 
         ext = body.get('extension', '').lower().lstrip('.')
-        content_type = body.get('contentType') or 'application/octet-stream'
         if not ext:
             return respond(400, {"error": "Missing file extension"})
 
         file_uuid = str(uuid.uuid4())
 
         if resource == '/upload/cover':
+            content_type = COVER_TYPES.get(ext)
+            if not content_type:
+                return respond(400, {"error": "Cover must be a JPG, PNG, or WebP image."})
+
+            size = body.get('fileSizeBytes', 0)
+            if size > MAX_COVER_BYTES:
+                return respond(400, {"error": "Cover image exceeds the 5MB limit."})
+
             key = f"covers/{file_uuid}.{ext}"
             url = s3.generate_presigned_url(
                 'put_object',
@@ -94,8 +125,12 @@ def lambda_handler(event, context):
             })
 
         elif resource == '/upload/book':
+            content_type = BOOK_TYPES.get(ext)
+            if not content_type:
+                return respond(400, {"error": "Book must be an EPUB, PDF, MOBI, or TXT file."})
+
             size = body.get('fileSizeBytes', 0)
-            if size > 104857600:  # 100MB max limit
+            if size > MAX_BOOK_BYTES:
                 return respond(400, {"error": "File size exceeds 100MB limit."})
 
             key = f"files/{file_uuid}.{ext}"

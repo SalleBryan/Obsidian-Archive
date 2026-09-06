@@ -39,6 +39,7 @@ export function AnnouncementBanner() {
         onClick={handleDismiss}
         style={{ background: "none", border: "none", color: "#ffcd5b", cursor: "pointer", flexShrink: 0, display: "flex" }}
         title="Dismiss"
+        aria-label="Dismiss announcement"
       >
         <X size={16} />
       </button>

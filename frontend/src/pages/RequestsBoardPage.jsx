@@ -10,6 +10,13 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   const [form, setForm] = useState({ title: "", author: "", description: "" });
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKeyDown = (e) => { if (e.key === "Escape") setModalOpen(false); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [modalOpen]);
+
   const loadRequests = async () => {
     setLoading(true);
     const data = await api.getRequests();
@@ -86,6 +93,8 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
                 <button
                   onClick={() => handleUpvote(r)}
                   title={currentUser ? (r.hasUpvoted ? "Remove upvote" : "Upvote this request") : "Sign in to upvote"}
+                  aria-label={`${r.hasUpvoted ? "Remove upvote from" : "Upvote"} "${r.title}", ${r.upvoteCount || 0} upvotes`}
+                  aria-pressed={!!r.hasUpvoted}
                   style={{
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0,
                     width: 46, padding: "6px 0", borderRadius: 10, cursor: "pointer",
@@ -143,18 +152,22 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
             <motion.div
               className="modal-box"
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="request-modal-title"
               initial={{ scale: 0.92, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.92, opacity: 0 }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: "#ffcd5b" }}>Request a Book</h2>
-                <button className="icon-btn" onClick={() => setModalOpen(false)}><X size={20} /></button>
+                <h2 id="request-modal-title" style={{ fontSize: 20, fontWeight: 800, color: "#ffcd5b" }}>Request a Book</h2>
+                <button className="icon-btn" onClick={() => setModalOpen(false)} aria-label="Close dialog"><X size={20} /></button>
               </div>
               <form onSubmit={handleCreateRequest}>
                 <div className="field">
-                  <label>Book Title *</label>
+                  <label htmlFor="request-title">Book Title *</label>
                   <input
+                    id="request-title"
                     type="text"
                     required
                     placeholder="e.g. Red Rising"
@@ -163,8 +176,9 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
                   />
                 </div>
                 <div className="field">
-                  <label>Author (Optional)</label>
+                  <label htmlFor="request-author">Author (Optional)</label>
                   <input
+                    id="request-author"
                     type="text"
                     placeholder="e.g. Pierce Brown"
                     value={form.author}
@@ -172,8 +186,9 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
                   />
                 </div>
                 <div className="field">
-                  <label>Notes / Format Preference</label>
+                  <label htmlFor="request-notes">Notes / Format Preference</label>
                   <textarea
+                    id="request-notes"
                     rows={3}
                     placeholder="e.g. Looking for EPUB or PDF to read this weekend…"
                     value={form.description}

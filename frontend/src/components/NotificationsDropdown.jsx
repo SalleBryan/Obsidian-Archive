@@ -29,11 +29,23 @@ export function NotificationsDropdown({ isOpen, onClose, notifications, onNotifi
               <div
                 key={n.notificationId}
                 className={`notif-item ${!n.isRead ? "unread" : ""}`}
+                role="button"
+                tabIndex={0}
+                aria-label={n.title}
                 onClick={() => {
                   api.markNotificationRead(n.notificationId);
                   if (onNotificationRead) onNotificationRead(n.notificationId);
                   onClose();
                   if (n.bookId) navigate(`/books/${n.bookId}`);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    api.markNotificationRead(n.notificationId);
+                    if (onNotificationRead) onNotificationRead(n.notificationId);
+                    onClose();
+                    if (n.bookId) navigate(`/books/${n.bookId}`);
+                  }
                 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#e4e4e7" }}>{n.title}</div>
