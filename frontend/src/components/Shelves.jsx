@@ -4,7 +4,19 @@ import { getCatColor } from "../config/constants";
 export function BookCoverShelfItem({ book, onSelect, size = "standard" }) {
   const isLarge = size === "large";
   return (
-    <div className={`book-shelf-item ${isLarge ? "large" : ""}`} onClick={onSelect}>
+    <div
+      className={`book-shelf-item ${isLarge ? "large" : ""}`}
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      aria-label={book.title}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+    >
       <div className="shelf-cover-wrapper">
         {book.coverKey ? (
           <img
@@ -37,7 +49,21 @@ export function HorizontalShelf({ title, subtitle, onSeeAll, books, onSelectBook
   if (!books || books.length === 0) return null;
   return (
     <div className="shelf-section">
-      <div className="shelf-header" onClick={onSeeAll}>
+      <div
+        className="shelf-header"
+        onClick={onSeeAll}
+        {...(onSeeAll ? {
+          role: "button",
+          tabIndex: 0,
+          "aria-label": `See all ${title}`,
+          onKeyDown: (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSeeAll();
+            }
+          },
+        } : {})}
+      >
         <div>
           <h2 className="shelf-header-title">{title}</h2>
           {subtitle && <p className="shelf-header-sub">{subtitle}</p>}
@@ -78,7 +104,21 @@ export function ContinueReadingShelf({ entries, coverMap, onOpenReader }) {
           const cat = full.category || "Uncategorized";
           const pct = Math.max(0, Math.min(100, e.percent || 0));
           return (
-            <div key={e.bookId} className="book-shelf-item" onClick={() => onOpenReader(e.bookId)} title={`Resume "${e.title}" - ${pct}% read`}>
+            <div
+              key={e.bookId}
+              className="book-shelf-item"
+              onClick={() => onOpenReader(e.bookId)}
+              title={`Resume "${e.title}" - ${pct}% read`}
+              role="button"
+              tabIndex={0}
+              aria-label={`Resume "${e.title}", ${pct}% read`}
+              onKeyDown={(ev) => {
+                if (ev.key === "Enter" || ev.key === " ") {
+                  ev.preventDefault();
+                  onOpenReader(e.bookId);
+                }
+              }}
+            >
               <div className="shelf-cover-wrapper" style={{ position: "relative" }}>
                 {cover ? (
                   <img src={`https://obsidian-covers-12345.s3.amazonaws.com/${cover}`} className="shelf-cover-img" alt={e.title} />
@@ -123,7 +163,19 @@ export function ContinueReadingShelf({ entries, coverMap, onOpenReader }) {
 
 export function BookCardItem({ book, onSelect }) {
   return (
-    <div className="book-card" onClick={onSelect}>
+    <div
+      className="book-card"
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      aria-label={book.title}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+    >
       <div className="book-card-top-bar" style={{ background: getCatColor(book.category) }} />
       <div className="book-card-badge">
         {book.visibility === "private" ? (

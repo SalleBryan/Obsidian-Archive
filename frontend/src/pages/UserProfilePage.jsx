@@ -99,8 +99,9 @@ export function UserProfilePage({ currentUser, onOpenAuth, isSuperAdmin }) {
         </div>
 
         <div className="field">
-          <label>Display Name</label>
+          <label htmlFor="profile-display-name">Display Name</label>
           <input
+            id="profile-display-name"
             type="text"
             value={profile.displayName}
             onChange={(e) => setProfile({ ...profile, displayName: e.target.value })}
@@ -108,8 +109,9 @@ export function UserProfilePage({ currentUser, onOpenAuth, isSuperAdmin }) {
         </div>
 
         <div className="field">
-          <label>Reader Bio / Favorite Genres</label>
+          <label htmlFor="profile-bio">Reader Bio / Favorite Genres</label>
           <textarea
+            id="profile-bio"
             rows={3}
             placeholder="e.g. Sci-Fi enthusiast, collector of epic fantasy novels…"
             value={profile.bio}
@@ -126,6 +128,7 @@ export function UserProfilePage({ currentUser, onOpenAuth, isSuperAdmin }) {
           </div>
           <input
             type="checkbox"
+            aria-label="Book Request Alerts"
             style={{ width: 20, height: 20, accentColor: "#ffcd5b", cursor: "pointer" }}
             checked={profile.requestNotifications}
             onChange={(e) => setProfile({ ...profile, requestNotifications: e.target.checked })}
@@ -160,8 +163,9 @@ export function UserProfilePage({ currentUser, onOpenAuth, isSuperAdmin }) {
         )}
 
         <div className="field">
-          <label>Type <strong>DELETE</strong> to confirm</label>
+          <label htmlFor="profile-delete-confirm">Type <strong>DELETE</strong> to confirm</label>
           <input
+            id="profile-delete-confirm"
             type="text"
             value={deleteConfirmText}
             onChange={(e) => setDeleteConfirmText(e.target.value)}

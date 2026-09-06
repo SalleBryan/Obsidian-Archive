@@ -103,7 +103,7 @@ export function OnlineReaderPage({ currentUser, authChecked }) {
       >
         {/* Left: back + title */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-          <button className="icon-btn" style={{ color: hdrFg }} onClick={() => navigate(`/books/${bookId}`)} title="Exit Reader">
+          <button className="icon-btn" style={{ color: hdrFg }} onClick={() => navigate(`/books/${bookId}`)} title="Exit Reader" aria-label="Exit reader">
             <ArrowLeft size={18} />
           </button>
           <div style={{ minWidth: 0, overflow: "hidden" }}>
@@ -123,6 +123,9 @@ export function OnlineReaderPage({ currentUser, authChecked }) {
             style={{ color: hdrFg }}
             onClick={() => setMoreOpen(v => !v)}
             title="Reader Options"
+            aria-label="Reader options"
+            aria-haspopup="true"
+            aria-expanded={moreOpen}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="12" cy="5"  r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
@@ -149,6 +152,7 @@ export function OnlineReaderPage({ currentUser, authChecked }) {
                     <button
                       key={t}
                       onClick={() => setTheme(t)}
+                      aria-pressed={theme === t}
                       style={{
                         flex: 1, padding: "8px 0", borderRadius: 8,
                         border: `1px solid ${theme === t ? "#ffcd5b" : "rgba(128,128,128,0.25)"}`,
@@ -170,11 +174,13 @@ export function OnlineReaderPage({ currentUser, authChecked }) {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, padding: "0 2px" }}>
                       <button
                         onClick={() => setFontSize(s => Math.max(14, s - 2))}
+                        aria-label="Decrease font size"
                         style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid rgba(128,128,128,0.25)`, background: "transparent", color: hdrFg, cursor: "pointer", fontSize: 14, fontWeight: 800, fontFamily: "inherit" }}
                       >A−</button>
                       <span style={{ flex: 1, textAlign: "center", fontSize: 14, fontWeight: 700, color: hdrFg }}>{fontSize}px</span>
                       <button
                         onClick={() => setFontSize(s => Math.min(32, s + 2))}
+                        aria-label="Increase font size"
                         style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid rgba(128,128,128,0.25)`, background: "transparent", color: hdrFg, cursor: "pointer", fontSize: 16, fontWeight: 800, fontFamily: "inherit" }}
                       >A+</button>
                     </div>

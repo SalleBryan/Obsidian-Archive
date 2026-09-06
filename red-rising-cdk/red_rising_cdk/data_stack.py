@@ -15,6 +15,7 @@ from aws_cdk import (
     aws_sns as sns,
     aws_sns_subscriptions as sns_subs,
     aws_budgets as budgets,
+    aws_logs as logs,
 )
 from constructs import Construct
 
@@ -185,6 +186,9 @@ class ObsidianDataStack(Stack):
                 type=dynamodb.AttributeType.STRING,
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
             removal_policy=RemovalPolicy.RETAIN,
         )
         books_table.add_global_secondary_index(
@@ -208,6 +212,9 @@ class ObsidianDataStack(Stack):
                 type=dynamodb.AttributeType.STRING,
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
             removal_policy=RemovalPolicy.RETAIN,
         )
 
@@ -219,6 +226,9 @@ class ObsidianDataStack(Stack):
                 type=dynamodb.AttributeType.STRING,
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
             removal_policy=RemovalPolicy.RETAIN,
         )
         requests_table.add_global_secondary_index(
@@ -240,6 +250,9 @@ class ObsidianDataStack(Stack):
                 type=dynamodb.AttributeType.STRING,
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
             removal_policy=RemovalPolicy.RETAIN,
         )
 
@@ -256,6 +269,9 @@ class ObsidianDataStack(Stack):
                 type=dynamodb.AttributeType.STRING,
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
             removal_policy=RemovalPolicy.RETAIN,
         )
 
@@ -270,6 +286,9 @@ class ObsidianDataStack(Stack):
                 type=dynamodb.AttributeType.STRING,
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
             removal_policy=RemovalPolicy.RETAIN,
         )
 
@@ -283,22 +302,31 @@ class ObsidianDataStack(Stack):
                 type=dynamodb.AttributeType.STRING,
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
             removal_policy=RemovalPolicy.RETAIN,
         )
 
         # ══════════════════════════════════════════════════════════════════════
         # 3. SQS - Main queue + Dead Letter Queue
         # ══════════════════════════════════════════════════════════════════════
+        # Unlike S3 and DynamoDB, SQS is not encrypted at rest by default, and
+        # these messages carry user-supplied titles, descriptions and names.
         dlq = sqs.Queue(
             self, "ObsidianDLQ",
             queue_name=n("obsidian-dlq"),
             retention_period=Duration.days(14),
+            encryption=sqs.QueueEncryption.SQS_MANAGED,
+            enforce_ssl=True,
         )
 
         queue = sqs.Queue(
             self, "ObsidianQueue",
             queue_name=n("obsidian-queue"),
             visibility_timeout=Duration.seconds(60),
+            encryption=sqs.QueueEncryption.SQS_MANAGED,
+            enforce_ssl=True,
             dead_letter_queue=sqs.DeadLetterQueue(
                 max_receive_count=3,
                 queue=dlq,
@@ -371,6 +399,7 @@ class ObsidianDataStack(Stack):
         covers_bucket = s3.Bucket(
             self, "CoversBucket",
             bucket_name=n("obsidian-covers-12345"),
+            enforce_ssl=True,
             cors=[s3.CorsRule(
                 allowed_methods=[
                     s3.HttpMethods.GET,
@@ -397,6 +426,7 @@ class ObsidianDataStack(Stack):
         files_bucket = s3.Bucket(
             self, "FilesBucket",
             bucket_name=n("obsidian-files-12345"),
+            enforce_ssl=True,
             cors=[s3.CorsRule(
                 allowed_methods=[
                     s3.HttpMethods.GET,
@@ -443,6 +473,11 @@ class ObsidianDataStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="auth_trigger.lambda_handler",
             code=shared_code,
+            log_group=logs.LogGroup(
+                self, "AuthTriggerFnLogs",
+                retention=logs.RetentionDays.ONE_MONTH,
+                removal_policy=RemovalPolicy.DESTROY,
+            ),
             timeout=Duration.seconds(10),
             environment=common_env,
         )

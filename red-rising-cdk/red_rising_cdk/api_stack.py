@@ -3,12 +3,14 @@ import json
 from aws_cdk import (
     Stack,
     Duration,
+    RemovalPolicy,
     CfnOutput,
     aws_lambda as _lambda,
     aws_lambda_event_sources as lambda_events,
     aws_apigateway as apigw,
     aws_cognito as cognito,
     aws_iam as iam,
+    aws_logs as logs,
 )
 from constructs import Construct
 
@@ -16,6 +18,16 @@ from constructs import Construct
 _ADMIN_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "src", "config", "adminConfig.json")
 with open(_ADMIN_CONFIG_PATH) as _f:
     _SUPER_ADMIN_EMAILS = ",".join(json.load(_f)["superAdminEmails"])
+
+# Auth is a bearer token rather than a cookie, so a wildcard origin was never
+# directly exploitable - but there's no reason for any origin but these to be
+# able to read a response from this API.
+# The first entry becomes the statically-emitted preflight default; the rest are
+# matched by a VTL override on the request's Origin header, so production leads.
+ALLOWED_ORIGINS = [
+    "https://main.d2nheaqmsqnih6.amplifyapp.com",
+    "http://localhost:5173",
+]
 
 class ObsidianApiStack(Stack):
 
@@ -42,6 +54,15 @@ class ObsidianApiStack(Stack):
         def n(base: str) -> str:
             return base if stage == "prod" else f"{base}-{stage}"
 
+        def log_group(fn_id: str) -> logs.LogGroup:
+            """Explicit log group per function so retention is set directly on the
+            group rather than through CDK's deprecated logRetention custom resource."""
+            return logs.LogGroup(
+                self, f"{fn_id}Logs",
+                retention=logs.RetentionDays.ONE_MONTH,
+                removal_policy=RemovalPolicy.DESTROY,
+            )
+
         shared_code = _lambda.Code.from_asset("lambda")
 
         common_env = {
@@ -64,6 +85,7 @@ class ObsidianApiStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="writer.lambda_handler",
             code=shared_code,
+            log_group=log_group("WriterFn"),
             timeout=Duration.seconds(10),
             environment={**common_env, "QUEUE_URL": queue.queue_url},
         )
@@ -75,11 +97,11 @@ class ObsidianApiStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="consumer.lambda_handler",
             code=shared_code,
+            log_group=log_group("ConsumerFn"),
             timeout=Duration.seconds(60),
             environment=common_env,
         )
         books_table.grant_read_write_data(consumer_fn)
-        profiles_table.grant_read_write_data(consumer_fn)
         requests_table.grant_read_write_data(consumer_fn)
         notifications_table.grant_read_write_data(consumer_fn)
         covers_bucket.grant_read_write(consumer_fn)
@@ -94,6 +116,7 @@ class ObsidianApiStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="reader.lambda_handler",
             code=shared_code,
+            log_group=log_group("ReaderFn"),
             timeout=Duration.seconds(10),
             environment=common_env,
         )
@@ -108,6 +131,7 @@ class ObsidianApiStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="upload.lambda_handler",
             code=shared_code,
+            log_group=log_group("UploadFn"),
             timeout=Duration.seconds(10),
             environment=common_env,
         )
@@ -121,6 +145,7 @@ class ObsidianApiStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="profile.lambda_handler",
             code=shared_code,
+            log_group=log_group("ProfileFn"),
             timeout=Duration.seconds(10),
             environment=common_env,
         )
@@ -132,6 +157,7 @@ class ObsidianApiStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="progress.lambda_handler",
             code=shared_code,
+            log_group=log_group("ProgressFn"),
             timeout=Duration.seconds(10),
             environment=common_env,
         )
@@ -152,17 +178,18 @@ class ObsidianApiStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="admin.lambda_handler",
             code=shared_code,
+            log_group=log_group("AdminFn"),
             timeout=Duration.seconds(30),
             environment=admin_env,
         )
-        books_table.grant_read_write_data(admin_fn)
-        requests_table.grant_read_write_data(admin_fn)
+        # This function only serves stats, audit log, announcement and user
+        # routes: it counts books/requests but never mutates them, and never
+        # touches S3 - book/request deletion lives on admin_books_fn.
+        books_table.grant_read_data(admin_fn)
+        requests_table.grant_read_data(admin_fn)
         profiles_table.grant_read_write_data(admin_fn)
-        notifications_table.grant_read_write_data(admin_fn)
         audit_log_table.grant_read_write_data(admin_fn)
         announcement_table.grant_read_write_data(admin_fn)
-        covers_bucket.grant_read_write(admin_fn)
-        files_bucket.grant_read_write(admin_fn)
         admin_fn.add_to_role_policy(iam.PolicyStatement(
             actions=[
                 "cognito-idp:ListUsers",
@@ -182,24 +209,33 @@ class ObsidianApiStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="admin.lambda_handler",
             code=shared_code,
+            log_group=log_group("AdminBooksFn"),
             timeout=Duration.seconds(30),
             environment=admin_env,
         )
         books_table.grant_read_write_data(admin_books_fn)
         requests_table.grant_read_write_data(admin_books_fn)
-        profiles_table.grant_read_write_data(admin_books_fn)
+        profiles_table.grant_read_data(admin_books_fn)
         notifications_table.grant_read_write_data(admin_books_fn)
         audit_log_table.grant_read_write_data(admin_books_fn)
         covers_bucket.grant_read_write(admin_books_fn)
         files_bucket.grant_read_write(admin_books_fn)
 
         # ── 2. API GATEWAY ──
+        # Several routes are intentionally unauthenticated and each does DynamoDB
+        # work, so without a stage throttle the API inherits the account-wide
+        # 10,000 rps default - far more than this app needs and a direct path to
+        # a runaway bill.
         api = apigw.RestApi(
             self, "ObsidianApi",
             rest_api_name=n("obsidian-archive-api"),
-            deploy_options=apigw.StageOptions(stage_name="prod"),
+            deploy_options=apigw.StageOptions(
+                stage_name="prod",
+                throttling_rate_limit=50,
+                throttling_burst_limit=100,
+            ),
             default_cors_preflight_options=apigw.CorsOptions(
-                allow_origins=apigw.Cors.ALL_ORIGINS,
+                allow_origins=ALLOWED_ORIGINS,
                 allow_methods=apigw.Cors.ALL_METHODS,
                 allow_headers=["Content-Type", "Authorization"],
             ),

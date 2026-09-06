@@ -94,7 +94,16 @@ def process_message(body):
                 update_exp += f", #{field} = :{field}"
                 exp_names[f"#{field}"] = field
                 exp_vals[f":{field}"] = val
-                
+
+        # A book becoming public has never been through review: private books are
+        # auto-approved on create, so without this a private book could be flipped
+        # public and reach the library carrying an approval no admin ever granted.
+        becoming_public = body.get('visibility') == 'public' and book.get('visibility') != 'public'
+        if becoming_public and not is_admin:
+            update_exp += ", #moderationStatus = :moderationStatus"
+            exp_names["#moderationStatus"] = "moderationStatus"
+            exp_vals[":moderationStatus"] = "pending"
+
         kwargs = {
             'Key': {'bookId': book_id},
             'UpdateExpression': update_exp,
@@ -151,19 +160,45 @@ def process_message(body):
     elif operation == "FULFILL_REQUEST":
         req_id = body.get('requestId')
         book_id = body.get('fulfilledBookId')
+        fulfiller_id = body.get('fulfilledBy')
         resp = requests_table.get_item(Key={'requestId': req_id})
         req = resp.get('Item')
 
-        requests_table.update_item(
-            Key={'requestId': req_id},
-            UpdateExpression="SET #s = :s, fulfilledBy = :fb, fulfilledBookId = :fbi",
-            ExpressionAttributeNames={'#s': 'status'},
-            ExpressionAttributeValues={
-                ':s': 'fulfilled',
-                ':fb': body.get('fulfilledBy'),
-                ':fbi': book_id
-            }
-        )
+        if not req:
+            print(f"Fulfill skipped: Request {req_id} not found")
+            return
+
+        if req.get('status') != 'open':
+            print(f"Fulfill skipped: Request {req_id} is not open")
+            return
+
+        # The caller must actually own the book they claim fulfills the request,
+        # otherwise anyone could close anyone's request against an invented bookId.
+        book_resp = books_table.get_item(Key={'bookId': book_id}) if book_id else {}
+        book = book_resp.get('Item')
+        if not book:
+            print(f"Fulfill skipped: Book {book_id} not found")
+            return
+        if book.get('ownerId') != fulfiller_id and not is_admin:
+            print(f"Fulfill skipped: Unauthorized for book {book_id}")
+            return
+
+        try:
+            requests_table.update_item(
+                Key={'requestId': req_id},
+                UpdateExpression="SET #s = :s, fulfilledBy = :fb, fulfilledBookId = :fbi",
+                ConditionExpression="attribute_exists(requestId) AND #s = :open",
+                ExpressionAttributeNames={'#s': 'status'},
+                ExpressionAttributeValues={
+                    ':s': 'fulfilled',
+                    ':fb': fulfiller_id,
+                    ':fbi': book_id,
+                    ':open': 'open'
+                }
+            )
+        except requests_table.meta.client.exceptions.ConditionalCheckFailedException:
+            print(f"Fulfill skipped: Request {req_id} was already fulfilled")
+            return
 
         if req and notifications_table:
             notifications_table.put_item(Item={
