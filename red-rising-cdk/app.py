@@ -1,4 +1,47 @@
 import os
+import subprocess
+import sys
+
+# cdk.json runs "python app.py", so whichever interpreter is first on PATH wins.
+# With the virtualenv unactivated that is the system Python, which has no
+# aws_cdk, and synth dies before a single stack is defined. Rather than rely on
+# everyone remembering to activate first, re-run this file with the local .venv
+# interpreter when the CDK is not importable. This falls through untouched in
+# CI, where dependencies are installed into the runner's own Python.
+_BOOTSTRAP_FLAG = "OBSIDIAN_CDK_BOOTSTRAPPED"
+
+
+def _use_venv_interpreter_if_needed():
+    try:
+        import aws_cdk  # noqa: F401
+        return
+    except ModuleNotFoundError:
+        # Already re-executed once: the venv itself is broken, so let the
+        # real ImportError surface rather than looping.
+        if os.environ.get(_BOOTSTRAP_FLAG):
+            raise
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    for candidate in (
+        os.path.join(here, ".venv", "Scripts", "python.exe"),  # Windows
+        os.path.join(here, ".venv", "bin", "python"),          # macOS / Linux
+    ):
+        if os.path.exists(candidate):
+            completed = subprocess.run(
+                [candidate, os.path.abspath(__file__), *sys.argv[1:]],
+                env={**os.environ, _BOOTSTRAP_FLAG: "1"},
+            )
+            sys.exit(completed.returncode)
+
+    raise SystemExit(
+        "aws_cdk is not importable and no .venv was found next to app.py. "
+        "Create one with: python -m venv .venv "
+        "and install dependencies with: .venv/Scripts/pip install -r requirements.txt"
+    )
+
+
+_use_venv_interpreter_if_needed()
+
 import aws_cdk as cdk
 from red_rising_cdk.data_stack import ObsidianDataStack
 from red_rising_cdk.api_stack import ObsidianApiStack
