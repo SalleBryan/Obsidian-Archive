@@ -241,6 +241,39 @@ class ObsidianApiStack(Stack):
             ),
         )
 
+        # API Gateway rejects unauthenticated and forbidden requests before the
+        # integration ever runs, and those built-in responses carry no CORS
+        # headers. The browser therefore refuses to expose the response and
+        # fetch() raises an opaque "TypeError: Failed to fetch" instead of a
+        # readable 401, so the frontend cannot distinguish an expired session
+        # from a dropped network - and any page awaiting an authenticated call
+        # spins forever rather than prompting a sign-in.
+        #
+        # Allow-Origin is '*' here rather than the ALLOWED_ORIGINS list. A gateway
+        # response is static CloudFormation and cannot pick an origin per request,
+        # and mapping method.request.header.Origin was tried first and verified not
+        # to emit the header at all - the parameter is configured on the API but no
+        # Access-Control-Allow-Origin reaches the client. '*' is safe on precisely
+        # these responses because they carry no body and no credentials: it lets a
+        # caller read a status code it already provoked, nothing more.
+        # Access-Control-Allow-Credentials is deliberately omitted, since pairing it
+        # with a wildcard origin is both invalid and the combination worth avoiding.
+        # The real allowlist still governs preflight and every integration response.
+        for response_id, response_type in (
+            ("Unauthorized", apigw.ResponseType.UNAUTHORIZED),
+            ("AccessDenied", apigw.ResponseType.ACCESS_DENIED),
+            ("Default4xx", apigw.ResponseType.DEFAULT_4_XX),
+            ("Default5xx", apigw.ResponseType.DEFAULT_5_XX),
+        ):
+            api.add_gateway_response(
+                f"CorsOn{response_id}",
+                type=response_type,
+                response_headers={
+                    "Access-Control-Allow-Origin": "'*'",
+                    "Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+                },
+            )
+
         cognito_authorizer = apigw.CognitoUserPoolsAuthorizer(
             self, "CognitoAuthorizer",
             cognito_user_pools=[user_pool],
