@@ -12,6 +12,21 @@ async function getAuthHeader() {
   }
 }
 
+// API Gateway rejects a missing or expired token with a 401 before the Lambda
+// runs. Callers need to tell that apart from a genuine failure so they can
+// prompt a sign-in rather than showing a generic error - or, as the requests
+// board used to, spin forever.
+export class AuthRequiredError extends Error {
+  constructor(message = "Please sign in to continue.") {
+    super(message);
+    this.name = "AuthRequiredError";
+  }
+}
+
+function throwIfUnauthorized(res) {
+  if (res.status === 401) throw new AuthRequiredError();
+}
+
 export const api = {
   getPublicBooks: async () => {
     try {
@@ -27,6 +42,7 @@ export const api = {
   getMyBooks: async () => {
     const headers = await getAuthHeader();
     const res = await fetch(EP.booksMine, { headers });
+    throwIfUnauthorized(res);
     if (!res.ok) throw new Error("Failed to load your collection");
     const data = await res.json();
     if (Array.isArray(data)) return data;
@@ -138,7 +154,8 @@ export const api = {
   getRequests: async () => {
     const headers = await getAuthHeader();
     const res = await fetch(EP.requests, { headers });
-    if (!res.ok) return [];
+    throwIfUnauthorized(res);
+    if (!res.ok) throw new Error("Could not load book requests.");
     const data = await res.json();
     if (Array.isArray(data)) return data;
     return data.requests || [];
