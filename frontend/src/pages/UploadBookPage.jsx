@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Library, Loader2, Save, UploadCloud, Lock, LogIn, FileText } from "lucide-react";
+import { ArrowLeft, Library, Loader2, Save, UploadCloud, Lock, LogIn, FileText, CheckCircle2, Plus } from "lucide-react";
 import { api } from "../api";
 import { CATEGORIES } from "../config/constants";
 
@@ -27,6 +27,7 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState("");
+  const [uploadedVisibility, setUploadedVisibility] = useState(null);
 
   if (!currentUser) {
     return (
@@ -105,12 +106,13 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
       await api.createBook(payload);
 
       setProgress(100);
-      setStatusText("Book added successfully!");
-
-      setTimeout(() => {
-        if (formData.visibility === "private") navigate("/collection");
-        else navigate("/library");
-      }, 800);
+      setStatusText("");
+      // Previously this redirected straight to /library for a public upload -
+      // the one page the book cannot appear on, because it is queued for
+      // review. With no confirmation either, a successful upload looked like a
+      // failure. Show what actually happened instead, and let the reader
+      // choose where to go.
+      setUploadedVisibility(formData.visibility);
     } catch (err) {
       alert(err.message || "Failed to upload book.");
       setUploading(false);
@@ -118,6 +120,39 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
       setStatusText("");
     }
   };
+
+  if (uploadedVisibility) {
+    const isPublic = uploadedVisibility === "public";
+    return (
+      <div className="page fade-in">
+        <div
+          className="editor-card glass-panel"
+          style={{ textAlign: "center", padding: "60px 20px", maxWidth: 540, margin: "40px auto" }}
+        >
+          <CheckCircle2 size={44} style={{ color: "#4ADE80", margin: "0 auto 16px" }} />
+          <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>
+            {isPublic ? "Uploaded and sent for review" : "Added to your collection"}
+          </h2>
+          <p style={{ color: "#a1a1aa", fontSize: 14, lineHeight: 1.6, marginBottom: 22 }}>
+            {isPublic
+              ? "An admin reviews public uploads before they appear in the library. Until then you'll find it in My Collection marked In review - it may take a moment to show up."
+              : "It's vaulted to your account and visible only to you. It may take a moment to appear."}
+          </p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            <button className="btn btn-primary" onClick={() => navigate("/collection")}>
+              <Library size={16} /> Go to My Collection
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => { setUploadedVisibility(null); setProgress(0); setUploading(false); }}
+            >
+              <Plus size={16} /> Upload another
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page fade-in">
@@ -216,6 +251,13 @@ export function UploadBookPage({ currentUser, onOpenAuth }) {
                 <option value="public">Public (Visible to everyone in library)</option>
                 <option value="private">Private (Vaulted to your collection only)</option>
               </select>
+              {formData.visibility === "public" && (
+                <p style={{ fontSize: 12, color: "#a1a1aa", marginTop: 6, lineHeight: 1.5 }}>
+                  Public uploads are reviewed by an admin before they appear in the
+                  library. Yours stays in My Collection, marked <strong>In review</strong>,
+                  until it is approved.
+                </p>
+              )}
             </div>
 
             {/* SERIES TOGGLE */}

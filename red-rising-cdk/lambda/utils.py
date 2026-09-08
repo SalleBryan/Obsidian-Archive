@@ -47,3 +47,26 @@ def parse_body(event):
         return json.loads(raw_body)
     except Exception:
         return {}
+
+
+def log(event, level="INFO", **fields):
+    """Emit one JSON line per log record.
+
+    CloudWatch Logs Insights can filter and aggregate on JSON fields, but not
+    on free text, so `print(f"Batch delete failed for book {bid}: {e}")` can
+    only ever be grepped. Structured records make questions like "which books
+    failed to delete this week" answerable.
+
+    Values are coerced to strings rather than trusted to serialise: a log call
+    must never be the thing that raises inside an exception handler. Callers
+    pass identifiers, never tokens or request bodies - log lines outlive the
+    request and are readable by anyone with CloudWatch access.
+    """
+    record = {"level": level, "event": event}
+    for key, value in fields.items():
+        record[key] = value if isinstance(value, (str, int, float, bool, type(None))) else str(value)
+    try:
+        print(json.dumps(record))
+    except Exception:
+        print(json.dumps({"level": "ERROR", "event": "log_serialisation_failed",
+                          "original_event": str(event)}))

@@ -2,7 +2,7 @@ import boto3
 import os
 import uuid
 from botocore.config import Config
-from utils import respond, get_auth_context, parse_body
+from utils import respond, get_auth_context, parse_body, log
 
 s3 = boto3.client(
     's3',
@@ -36,6 +36,9 @@ MAX_COVER_BYTES = 5 * 1024 * 1024
 MAX_BOOK_BYTES = 100 * 1024 * 1024
 
 def lambda_handler(event, context):
+    # Bound before the try so the except block can log context even when
+    # the failure happens on the very first statement.
+    resource = event.get("resource", "")
     try:
         resource = event.get('resource', '')
         auth = get_auth_context(event)
@@ -152,5 +155,5 @@ def lambda_handler(event, context):
         return respond(404, {"error": "Not found"})
 
     except Exception as e:
-        print(f"Error in upload handler: {e}")
+        log("upload_request_failed", level="ERROR", resource=resource, error=e)
         return respond(500, {"error": "Internal server error"})

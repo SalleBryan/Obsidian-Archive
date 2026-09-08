@@ -3,7 +3,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from boto3.dynamodb.conditions import Attr
-from utils import respond, get_auth_context, parse_body
+from utils import respond, get_auth_context, parse_body, log
 
 cognito_client = boto3.client('cognito-idp')
 dynamodb = boto3.resource('dynamodb')
@@ -46,7 +46,7 @@ def _audit(auth, action, target_type="", target_id=""):
             "timestamp": _now(),
         })
     except Exception as e:
-        print(f"Audit log write failed: {e}")
+        log("audit_write_failed", level="ERROR", action=action, error=e)
 
 
 def _logged(resp, auth, action, target_type="", target_id=""):
@@ -223,7 +223,7 @@ def delete_user(user_id):
         try:
             profiles_table.delete_item(Key={"userId": user_id})
         except Exception as e:
-            print(f"Profile cleanup failed: {e}")
+            log("profile_cleanup_failed", level="ERROR", user_id=user_id, error=e)
     return respond(200, {"message": "User deleted"})
 
 
@@ -239,7 +239,7 @@ def batch_delete_users(user_ids):
                 profiles_table.delete_item(Key={"userId": uid})
             deleted.append(uid)
         except Exception as e:
-            print(f"Batch delete failed for user {uid}: {e}")
+            log("batch_delete_user_failed", level="ERROR", user_id=uid, error=e)
             failed.append(uid)
     return respond(200, {"deleted": deleted, "failed": failed})
 
@@ -361,7 +361,7 @@ def approve_book_admin(book_id):
         try:
             _notify_matching_requesters(book_id, book.get("title", ""), uploader_name, now)
         except Exception as e:
-            print(f"Notify matching requesters failed: {e}")
+            log("notify_requesters_failed", level="ERROR", book_id=book_id, error=e)
 
     return respond(200, {"message": "Book approved"})
 
@@ -423,7 +423,7 @@ def _delete_book_row(book_id):
             try:
                 s3.delete_object(Bucket=bucket, Key=key)
             except Exception as e:
-                print(f"S3 delete failed: {e}")
+                log("s3_delete_failed", level="ERROR", error=e)
     books_table.delete_item(Key={"bookId": book_id})
     return True
 
@@ -444,7 +444,7 @@ def batch_delete_books(book_ids):
         try:
             (deleted if _delete_book_row(bid) else failed).append(bid)
         except Exception as e:
-            print(f"Batch delete failed for book {bid}: {e}")
+            log("batch_delete_book_failed", level="ERROR", book_id=bid, error=e)
             failed.append(bid)
     return respond(200, {"deleted": deleted, "failed": failed})
 
@@ -512,7 +512,7 @@ def _delete_request_row(req_id):
         try:
             s3.delete_object(Bucket=COVERS_BUCKET, Key=req["coverKey"])
         except Exception as e:
-            print(f"S3 delete failed: {e}")
+            log("s3_delete_failed", level="ERROR", error=e)
     requests_table.delete_item(Key={"requestId": req_id})
     return True
 
@@ -533,7 +533,7 @@ def batch_delete_requests(request_ids):
         try:
             (deleted if _delete_request_row(rid) else failed).append(rid)
         except Exception as e:
-            print(f"Batch delete failed for request {rid}: {e}")
+            log("batch_delete_request_failed", level="ERROR", request_id=rid, error=e)
             failed.append(rid)
     return respond(200, {"deleted": deleted, "failed": failed})
 
@@ -634,5 +634,5 @@ def lambda_handler(event, context):
     except cognito_client.exceptions.UserNotFoundException:
         return respond(404, {"error": "User not found in Cognito"})
     except Exception as e:
-        print(f"Admin error [{method} {resource}]: {e}")
+        log("admin_request_failed", level="ERROR", method=method, resource=resource, error=e)
         return respond(500, {"error": "Internal server error"})

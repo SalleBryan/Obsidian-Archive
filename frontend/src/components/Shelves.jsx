@@ -1,4 +1,4 @@
-import { BookOpen, Lock, Globe, ChevronRight } from "lucide-react";
+import { BookOpen, Lock, Globe, ChevronRight, Clock, Ban } from "lucide-react";
 import { getCatColor } from "../config/constants";
 
 export function BookCoverShelfItem({ book, onSelect, size = "standard" }) {
@@ -180,6 +180,13 @@ export function BookCardItem({ book, onSelect }) {
       <div className="book-card-badge">
         {book.visibility === "private" ? (
           <><Lock size={10} color="#f87171" /> Private</>
+        ) : book.moderationStatus === "pending" ? (
+          // A public book awaiting review is not visible to anyone else yet.
+          // Showing the same "Public" pill as an approved book told the owner
+          // their upload was live when it was not.
+          <><Clock size={10} color="#ffcd5b" /> In review</>
+        ) : book.moderationStatus === "rejected" ? (
+          <><Ban size={10} color="#f87171" /> Rejected</>
         ) : (
           <><Globe size={10} color="#4ADE80" /> Public</>
         )}

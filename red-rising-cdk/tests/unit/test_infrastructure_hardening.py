@@ -157,3 +157,46 @@ class TestObservability:
         data, _ = stacks
         alarms = _resources(data, "AWS::CloudWatch::Alarm")
         assert alarms, "expected an alarm on the dead letter queue"
+
+
+class TestErrorResponsesAreReadableByBrowsers:
+    """API Gateway rejects unauthorized requests before the integration runs.
+    Without CORS headers on those gateway responses the browser blocks the
+    response and fetch() reports an opaque network error, so the frontend
+    cannot tell an expired session from an outage."""
+
+    REQUIRED_TYPES = {"UNAUTHORIZED", "ACCESS_DENIED", "DEFAULT_4XX", "DEFAULT_5XX"}
+
+    def _gateway_responses(self, api):
+        return {
+            r["Properties"]["ResponseType"]: r["Properties"].get("ResponseParameters", {})
+            for r in _resources(api, "AWS::ApiGateway::GatewayResponse").values()
+        }
+
+    def test_auth_failures_carry_cors_headers(self, stacks):
+        _, api = stacks
+        responses = self._gateway_responses(api)
+        missing = self.REQUIRED_TYPES - responses.keys()
+        assert not missing, f"gateway responses missing CORS: {sorted(missing)}"
+
+    def test_allow_origin_is_a_literal_not_a_mapping_expression(self, stacks):
+        # Asserting only that the key exists is not enough: a
+        # method.request.header.Origin mapping is accepted by CloudFormation and
+        # by API Gateway, yet emits no header at all on the wire. Only a quoted
+        # literal actually reaches the client, so require that shape.
+        _, api = stacks
+        key = "gatewayresponse.header.Access-Control-Allow-Origin"
+        for rtype, params in self._gateway_responses(api).items():
+            value = params.get(key)
+            assert value, f"{rtype} would still be opaque to the browser"
+            assert value.startswith("'") and value.endswith("'"), (
+                f"{rtype} uses {value!r}; gateway responses only emit quoted "
+                "literals, mapping expressions are silently dropped"
+            )
+
+    def test_error_responses_do_not_allow_credentials(self, stacks):
+        # Echoing Origin is safe here only because these carry no credentials.
+        _, api = stacks
+        for rtype, params in self._gateway_responses(api).items():
+            assert "gatewayresponse.header.Access-Control-Allow-Credentials" not in params, \
+                f"{rtype} pairs an echoed origin with credentials"
