@@ -2,7 +2,7 @@ import boto3
 import os
 import time
 from boto3.dynamodb.conditions import Key
-from utils import respond, get_auth_context, parse_body
+from utils import respond, get_auth_context, parse_body, log
 
 dynamodb = boto3.resource('dynamodb')
 PROGRESS_TABLE = os.environ.get('PROGRESS_TABLE')
@@ -15,6 +15,9 @@ def lambda_handler(event, context):
     PUT    /progress/{bookId} → upsert progress for one book
     DELETE /progress/{bookId} → remove one book from Continue Reading
     """
+    # Bound before the try so the except block can log context even when
+    # the failure happens on the very first statement.
+    method = event.get("httpMethod")
     try:
         auth = get_auth_context(event)
         user_id = auth['userId']
@@ -67,5 +70,5 @@ def lambda_handler(event, context):
         return respond(405, {"error": "Method not allowed"})
 
     except Exception as e:
-        print(f"Error in progress handler: {e}")
+        log("progress_request_failed", level="ERROR", method=method, error=e)
         return respond(500, {"error": "Internal server error"})
