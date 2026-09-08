@@ -1,3 +1,4 @@
+from utils import log
 import json
 import boto3
 import os
@@ -23,7 +24,7 @@ def delete_s3_object(bucket, key):
     try:
         s3.delete_object(Bucket=bucket, Key=key)
     except Exception as e:
-        print(f"Error deleting s3://{bucket}/{key}: {e}")
+        log("s3_delete_failed", level="ERROR", bucket=bucket, key=key, error=e)
 
 
 def process_message(body):
@@ -73,11 +74,11 @@ def process_message(body):
         book = resp.get('Item')
         
         if not book:
-            print(f"Update skipped: Book {book_id} not found")
+            log("update_skipped", level="WARN", reason="book_not_found", book_id=book_id)
             return
             
         if book.get('ownerId') != owner_id and not is_admin:
-            print(f"Update skipped: Unauthorized for book {book_id}")
+            log("update_skipped", level="WARN", reason="unauthorized", book_id=book_id)
             return
             
         update_exp = "SET updatedAt = :upd"
@@ -124,7 +125,7 @@ def process_message(body):
             return
             
         if book.get('ownerId') != owner_id and not is_admin:
-            print(f"Delete skipped: Unauthorized for book {book_id}")
+            log("delete_skipped", level="WARN", reason="unauthorized", book_id=book_id)
             return
             
         delete_s3_object(COVERS_BUCKET, book.get('coverKey'))
@@ -165,11 +166,11 @@ def process_message(body):
         req = resp.get('Item')
 
         if not req:
-            print(f"Fulfill skipped: Request {req_id} not found")
+            log("fulfill_skipped", level="WARN", reason="request_not_found", request_id=req_id)
             return
 
         if req.get('status') != 'open':
-            print(f"Fulfill skipped: Request {req_id} is not open")
+            log("fulfill_skipped", level="WARN", reason="request_not_open", request_id=req_id)
             return
 
         # The caller must actually own the book they claim fulfills the request,
@@ -177,10 +178,10 @@ def process_message(body):
         book_resp = books_table.get_item(Key={'bookId': book_id}) if book_id else {}
         book = book_resp.get('Item')
         if not book:
-            print(f"Fulfill skipped: Book {book_id} not found")
+            log("fulfill_skipped", level="WARN", reason="book_not_found", book_id=book_id)
             return
         if book.get('ownerId') != fulfiller_id and not is_admin:
-            print(f"Fulfill skipped: Unauthorized for book {book_id}")
+            log("fulfill_skipped", level="WARN", reason="unauthorized", book_id=book_id)
             return
 
         try:
@@ -197,7 +198,7 @@ def process_message(body):
                 }
             )
         except requests_table.meta.client.exceptions.ConditionalCheckFailedException:
-            print(f"Fulfill skipped: Request {req_id} was already fulfilled")
+            log("fulfill_skipped", level="WARN", reason="already_fulfilled", request_id=req_id)
             return
 
         if req and notifications_table:
@@ -221,7 +222,7 @@ def process_message(body):
             return
             
         if req.get('requesterId') != owner_id and not is_admin:
-            print(f"Delete request skipped: Unauthorized for {req_id}")
+            log("delete_request_skipped", level="WARN", reason="unauthorized", request_id=req_id)
             return
             
         delete_s3_object(COVERS_BUCKET, req.get('coverKey'))
@@ -261,4 +262,4 @@ def lambda_handler(event, context):
             body = json.loads(record['body'])
             process_message(body)
         except Exception as e:
-            print(f"Error processing record: {e}")
+            log("sqs_record_failed", level="ERROR", operation=body.get("operation") if isinstance(body, dict) else None, error=e)

@@ -2,7 +2,7 @@ import json
 import boto3
 import os
 from boto3.dynamodb.conditions import Key, Attr
-from utils import respond, get_auth_context
+from utils import respond, get_auth_context, log
 
 dynamodb = boto3.resource('dynamodb')
 
@@ -30,6 +30,9 @@ def public_book(book):
     return b
 
 def lambda_handler(event, context):
+    # Bound before the try so the except block can log context even when
+    # the failure happens on the very first statement.
+    resource = event.get("resource", "")
     try:
         resource = event.get('resource', '')
         auth = get_auth_context(event)
@@ -126,5 +129,5 @@ def lambda_handler(event, context):
         return respond(404, {"error": "Not found"})
 
     except Exception as e:
-        print(f"Error in reader: {e}")
+        log("reader_request_failed", level="ERROR", resource=resource, error=e)
         return respond(500, {"error": "Internal server error"})

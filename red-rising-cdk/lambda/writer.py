@@ -1,7 +1,7 @@
 import json
 import boto3
 import os
-from utils import respond, get_auth_context, parse_body
+from utils import respond, get_auth_context, parse_body, log
 
 sqs = boto3.client('sqs')
 QUEUE_URL = os.environ.get('QUEUE_URL')
@@ -13,6 +13,9 @@ ALLOWED_OPERATIONS = [
 ]
 
 def lambda_handler(event, context):
+    # Bound before the try so the except block can log context even when
+    # the failure happens on the very first statement.
+    body = {}
     try:
         body = parse_body(event)
         operation = body.get('operation')
@@ -56,5 +59,5 @@ def lambda_handler(event, context):
         return respond(202, {"message": f"Operation {operation} queued successfully"})
 
     except Exception as e:
-        print(f"Error in writer: {e}")
+        log("writer_request_failed", level="ERROR", operation=body.get("operation") if isinstance(body, dict) else None, error=e)
         return respond(500, {"error": "Internal server error"})
