@@ -37,6 +37,12 @@ jobs:
           npm install -g aws-cdk
           cdk synth --quiet
 
+      # The spec is generated from the synthesized template, so a route added
+      # or an authorizer changed without regenerating it fails here rather than
+      # leaving the published docs quietly wrong.
+      - name: Check the OpenAPI spec is current
+        run: python scripts/generate_openapi.py --check
+
   frontend:
     name: Frontend build and dependency audit
     runs-on: ubuntu-latest

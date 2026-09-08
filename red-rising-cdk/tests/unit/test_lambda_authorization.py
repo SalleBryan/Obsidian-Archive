@@ -292,3 +292,79 @@ class TestUploadTypeAllowlist:
             _event("/upload/cover", method="POST", body={"extension": "png"}), None
         )
         assert resp["statusCode"] == 401
+
+
+class TestLastAdminCannotBeRemoved:
+    """Deleting or disabling the only super-admin locks everyone out of the
+    panel permanently - the allowlist is matched on email, so there is no
+    in-app route back once that account is gone. The Users table showed no
+    hint that a row was special and every row had an active delete button.
+    Enforced server-side because hiding the button leaves the endpoint open."""
+
+    ADMIN_EMAIL = "admin@example.com"
+    PROFILES = {
+        "admin-id": {"email": ADMIN_EMAIL},
+        "normal-id": {"email": "reader@example.com"},
+    }
+
+    @pytest.fixture
+    def admin_mod(self, monkeypatch):
+        import admin as admin_mod
+        monkeypatch.setattr(utils, "SUPER_ADMIN_EMAILS", [self.ADMIN_EMAIL], raising=False)
+        monkeypatch.setattr(admin_mod, "SUPER_ADMIN_EMAILS", [self.ADMIN_EMAIL], raising=False)
+        monkeypatch.setattr(admin_mod, "_resolve_username",
+                            lambda uid: self.PROFILES.get(uid, {}).get("email", uid))
+        monkeypatch.setattr(admin_mod, "profiles_table", None)
+        monkeypatch.setattr(admin_mod, "audit_log_table", None)
+        cognito = MagicMock()
+        monkeypatch.setattr(admin_mod, "cognito_client", cognito)
+        admin_mod._test_cognito = cognito
+        return admin_mod
+
+    def _other_admin(self):
+        return {"userId": "other-id", "email": "other@example.com"}
+
+    def test_cannot_delete_own_account(self, admin_mod):
+        me = {"userId": "admin-id", "email": self.ADMIN_EMAIL}
+        resp = admin_mod.delete_user("admin-id", me)
+        assert resp["statusCode"] == 400
+        assert "your own" in json.loads(resp["body"])["error"].lower()
+        admin_mod._test_cognito.admin_delete_user.assert_not_called()
+
+    def test_cannot_delete_another_admin(self, admin_mod):
+        resp = admin_mod.delete_user("admin-id", self._other_admin())
+        assert resp["statusCode"] == 400
+        admin_mod._test_cognito.admin_delete_user.assert_not_called()
+
+    def test_cannot_disable_an_admin(self, admin_mod):
+        resp = admin_mod.toggle_user("admin-id", True, self._other_admin())
+        assert resp["statusCode"] == 400
+        admin_mod._test_cognito.admin_disable_user.assert_not_called()
+
+    def test_enabling_an_admin_is_still_allowed(self, admin_mod):
+        # Re-enabling is not destructive and must not be blocked.
+        resp = admin_mod.toggle_user("admin-id", False, self._other_admin())
+        assert resp["statusCode"] == 200
+        admin_mod._test_cognito.admin_enable_user.assert_called_once()
+
+    def test_normal_users_are_unaffected(self, admin_mod):
+        resp = admin_mod.delete_user("normal-id", self._other_admin())
+        assert resp["statusCode"] == 200
+        admin_mod._test_cognito.admin_delete_user.assert_called_once()
+
+    def test_bulk_delete_skips_admins_but_deletes_the_rest(self, admin_mod):
+        resp = admin_mod.batch_delete_users(["admin-id", "normal-id"], self._other_admin())
+        body = json.loads(resp["body"])
+        assert body["deleted"] == ["normal-id"]
+        assert body["protected"] == ["admin-id"]
+        called = [c.kwargs["Username"] for c in admin_mod._test_cognito.admin_delete_user.call_args_list]
+        assert self.ADMIN_EMAIL not in called
+
+    def test_guard_fails_closed_when_lookup_breaks(self, admin_mod, monkeypatch):
+        # If we cannot tell whether a target is an admin, refuse rather than
+        # risk the lockout.
+        def boom(uid): raise RuntimeError("profiles unavailable")
+        monkeypatch.setattr(admin_mod, "_resolve_username", boom)
+        resp = admin_mod.delete_user("normal-id", self._other_admin())
+        assert resp["statusCode"] == 400
+        admin_mod._test_cognito.admin_delete_user.assert_not_called()

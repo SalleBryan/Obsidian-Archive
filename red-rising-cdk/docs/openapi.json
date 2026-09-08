@@ -1,0 +1,1464 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Obsidian Archive API",
+    "version": "1.0.0",
+    "description": "Generated from the CDK-synthesized CloudFormation template by scripts/generate_openapi.py - do not edit by hand.\n\nRoutes marked with CognitoUserPool require a Cognito ID token as `Authorization: Bearer <token>`. Admin routes additionally check the caller's verified email against the super-admin allowlist inside the Lambda; API Gateway only proves identity, not privilege."
+  },
+  "components": {
+    "securitySchemes": {
+      "CognitoUserPool": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Cognito ID token, validated by an API Gateway authorizer."
+      }
+    }
+  },
+  "paths": {
+    "/admin/announcement": {
+      "put": {
+        "summary": "PUT /admin/announcement",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /admin/announcement",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/admin/audit-log": {
+      "get": {
+        "summary": "GET /admin/audit-log",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/admin/books": {
+      "get": {
+        "summary": "GET /admin/books",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "POST /admin/books",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/admin/books/batch-delete": {
+      "post": {
+        "summary": "POST /admin/books/batch-delete",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/admin/books/{bookId}": {
+      "put": {
+        "summary": "PUT /admin/books/{bookId}",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /admin/books/{bookId}",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/books/{bookId}/approve": {
+      "put": {
+        "summary": "PUT /admin/books/{bookId}/approve",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/books/{bookId}/reject": {
+      "put": {
+        "summary": "PUT /admin/books/{bookId}/reject",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/requests": {
+      "get": {
+        "summary": "GET /admin/requests",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "POST /admin/requests",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/admin/requests/batch-delete": {
+      "post": {
+        "summary": "POST /admin/requests/batch-delete",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/admin/requests/{requestId}": {
+      "put": {
+        "summary": "PUT /admin/requests/{requestId}",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /admin/requests/{requestId}",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "summary": "GET /admin/stats",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "summary": "GET /admin/users",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "POST /admin/users",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/admin/users/batch-delete": {
+      "post": {
+        "summary": "POST /admin/users/batch-delete",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{userId}": {
+      "put": {
+        "summary": "PUT /admin/users/{userId}",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /admin/users/{userId}",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/users/{userId}/disable": {
+      "put": {
+        "summary": "PUT /admin/users/{userId}/disable",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/users/{userId}/enable": {
+      "put": {
+        "summary": "PUT /admin/users/{userId}/enable",
+        "description": "Handled by the admin Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/announcement": {
+      "get": {
+        "summary": "GET /announcement",
+        "description": "Handled by the reader Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/books": {
+      "get": {
+        "summary": "GET /books",
+        "description": "Handled by the reader/writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": []
+      },
+      "post": {
+        "summary": "POST /books",
+        "description": "Handled by the reader/writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/books/mine": {
+      "get": {
+        "summary": "GET /books/mine",
+        "description": "Handled by the reader Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/books/{bookId}": {
+      "get": {
+        "summary": "GET /books/{bookId}",
+        "description": "Handled by the reader/writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "summary": "PUT /books/{bookId}",
+        "description": "Handled by the reader/writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /books/{bookId}",
+        "description": "Handled by the reader/writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/books/{bookId}/auth": {
+      "get": {
+        "summary": "GET /books/{bookId}/auth",
+        "description": "Handled by the reader Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/books/{bookId}/read": {
+      "get": {
+        "summary": "GET /books/{bookId}/read",
+        "description": "Handled by the upload Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/books/{bookId}/read-auth": {
+      "get": {
+        "summary": "GET /books/{bookId}/read-auth",
+        "description": "Handled by the upload Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/notifications": {
+      "get": {
+        "summary": "GET /notifications",
+        "description": "Handled by the reader/writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "PUT /notifications",
+        "description": "Handled by the reader/writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/profile": {
+      "get": {
+        "summary": "GET /profile",
+        "description": "Handled by the profile Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "PUT /profile",
+        "description": "Handled by the profile Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /profile",
+        "description": "Handled by the profile Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/progress": {
+      "get": {
+        "summary": "GET /progress",
+        "description": "Handled by the progress Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/progress/{bookId}": {
+      "put": {
+        "summary": "PUT /progress/{bookId}",
+        "description": "Handled by the progress Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /progress/{bookId}",
+        "description": "Handled by the progress Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/requests": {
+      "get": {
+        "summary": "GET /requests",
+        "description": "Handled by the reader/writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "POST /requests",
+        "description": "Handled by the reader/writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/requests/{requestId}": {
+      "put": {
+        "summary": "PUT /requests/{requestId}",
+        "description": "Handled by the writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /requests/{requestId}",
+        "description": "Handled by the writer Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/upload/book": {
+      "post": {
+        "summary": "POST /upload/book",
+        "description": "Handled by the upload Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    },
+    "/upload/cover": {
+      "post": {
+        "summary": "POST /upload/cover",
+        "description": "Handled by the upload Lambda.",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "401": {
+            "description": "Missing or expired token. Carries CORS headers so the browser can surface the status instead of an opaque network error."
+          },
+          "403": {
+            "description": "Authenticated but not permitted"
+          }
+        },
+        "security": [
+          {
+            "CognitoUserPool": []
+          }
+        ]
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Loader2, Users, BookOpen, FileQuestion, ShieldAlert, Trash2, Ban, CheckCircle2, XCircle, ArrowLeft, Pencil, Plus, X, Eye, EyeOff, Search, ChevronLeft, ChevronRight, Download, Megaphone } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useConfirm } from "../components/ConfirmDialog";
 import "../styles/admin.css";
 
 const TABS = ["Dashboard", "Users", "Books", "Requests", "Audit Log"];
@@ -393,6 +394,7 @@ function UsersTab() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [modal, setModal] = useState(null); // "create" | user object (edit) | null
   const { selected, toggleOne, toggleAll, clear } = useSelection();
+  const [confirm, confirmDialog] = useConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -405,7 +407,12 @@ function UsersTab() {
   const { search, setSearch, page, setPage, totalPages, paged, filteredCount, filtered } = useTableControls(users, ["name", "email"]);
 
   const toggle = async (u) => {
-    if (!window.confirm(`${u.enabled ? "Disable" : "Enable"} account for ${u.email}?`)) return;
+    if (!(await confirm({
+      title: `${u.enabled ? "Disable" : "Enable"} this account?`,
+      body: <>This will {u.enabled ? "block" : "restore"} sign-in for <strong>{u.email}</strong>. You can change it back at any time.</>,
+      confirmLabel: u.enabled ? "Disable account" : "Enable account",
+      destructive: u.enabled,
+    }))) return;
     setBusy(u.userId);
     try {
       await api.adminToggleUser(u.userId, u.enabled ? "disable" : "enable");
@@ -415,7 +422,11 @@ function UsersTab() {
   };
 
   const del = async (u) => {
-    if (!window.confirm(`Permanently delete ${u.email}? This cannot be undone.`)) return;
+    if (!(await confirm({
+      title: "Delete this user?",
+      body: <>This permanently removes <strong>{u.email}</strong> and their profile. Their uploaded books and requests are not removed. This cannot be undone.</>,
+      confirmLabel: "Delete user",
+    }))) return;
     setBusy(u.userId);
     try {
       await api.adminDeleteUser(u.userId);
@@ -426,7 +437,12 @@ function UsersTab() {
 
   const bulkDelete = async () => {
     const ids = [...selected];
-    if (!window.confirm(`Permanently delete ${ids.length} user${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    if (!(await confirm({
+      title: `Delete ${ids.length} user${ids.length !== 1 ? "s" : ""}?`,
+      body: <>This permanently removes {ids.length} account{ids.length !== 1 ? "s" : ""} and their profiles. Administrator accounts are skipped automatically. This cannot be undone.</>,
+      confirmLabel: `Delete ${ids.length} user${ids.length !== 1 ? "s" : ""}`,
+      confirmText: "DELETE",
+    }))) return;
     setBulkDeleting(true);
     try {
       const { deleted } = await api.adminBatchDeleteUsers(ids);
@@ -491,6 +507,8 @@ function UsersTab() {
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} totalItems={filteredCount} pageSize={PAGE_SIZE} />
 
+      {confirmDialog}
+
       {modal === "create" && (
         <FormModal
           title="Add User"
@@ -530,6 +548,7 @@ function BooksTab() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [modal, setModal] = useState(null);
   const { selected, toggleOne, toggleAll, clear } = useSelection();
+  const [confirm, confirmDialog] = useConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -542,7 +561,11 @@ function BooksTab() {
   const { search, setSearch, page, setPage, totalPages, paged, filteredCount, filtered } = useTableControls(books, ["title", "author"]);
 
   const del = async (b) => {
-    if (!window.confirm(`Permanently delete "${b.title}"? This cannot be undone.`)) return;
+    if (!(await confirm({
+      title: "Delete this book?",
+      body: <>This permanently removes <strong>{b.title}</strong> along with its cover and document. This cannot be undone.</>,
+      confirmLabel: "Delete book",
+    }))) return;
     setBusy(b.bookId);
     try {
       await api.adminDeleteBook(b.bookId);
@@ -553,7 +576,12 @@ function BooksTab() {
 
   const bulkDelete = async () => {
     const ids = [...selected];
-    if (!window.confirm(`Permanently delete ${ids.length} book${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    if (!(await confirm({
+      title: `Delete ${ids.length} book${ids.length !== 1 ? "s" : ""}?`,
+      body: <>This permanently removes {ids.length} book{ids.length !== 1 ? "s" : ""}, including covers and documents. This cannot be undone.</>,
+      confirmLabel: `Delete ${ids.length} book${ids.length !== 1 ? "s" : ""}`,
+      confirmText: "DELETE",
+    }))) return;
     setBulkDeleting(true);
     try {
       const { deleted } = await api.adminBatchDeleteBooks(ids);
@@ -573,7 +601,11 @@ function BooksTab() {
   };
 
   const reject = async (b) => {
-    if (!window.confirm(`Reject "${b.title}"? It will stay hidden from the public library.`)) return;
+    if (!(await confirm({
+      title: "Reject this book?",
+      body: <><strong>{b.title}</strong> stays hidden from the public library. It is not deleted, and the uploader can still see it marked as rejected.</>,
+      confirmLabel: "Reject book",
+    }))) return;
     setBusy(b.bookId);
     try {
       await api.adminRejectBook(b.bookId);
@@ -661,6 +693,8 @@ function BooksTab() {
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} totalItems={filteredCount} pageSize={PAGE_SIZE} />
 
+      {confirmDialog}
+
       {modal === "create" && (
         <FormModal
           title="Add Book"
@@ -692,6 +726,7 @@ function RequestsTab() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [modal, setModal] = useState(null);
   const { selected, toggleOne, toggleAll, clear } = useSelection();
+  const [confirm, confirmDialog] = useConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -704,7 +739,11 @@ function RequestsTab() {
   const { search, setSearch, page, setPage, totalPages, paged, filteredCount, filtered } = useTableControls(requests, ["title", "requesterName", "author"]);
 
   const del = async (r) => {
-    if (!window.confirm(`Delete request "${r.title}"?`)) return;
+    if (!(await confirm({
+      title: "Delete this request?",
+      body: <>This permanently removes the request for <strong>{r.title}</strong> and its upvotes. This cannot be undone.</>,
+      confirmLabel: "Delete request",
+    }))) return;
     setBusy(r.requestId);
     try {
       await api.adminDeleteRequest(r.requestId);
@@ -715,7 +754,12 @@ function RequestsTab() {
 
   const bulkDelete = async () => {
     const ids = [...selected];
-    if (!window.confirm(`Delete ${ids.length} request${ids.length !== 1 ? "s" : ""}?`)) return;
+    if (!(await confirm({
+      title: `Delete ${ids.length} request${ids.length !== 1 ? "s" : ""}?`,
+      body: <>This permanently removes {ids.length} request{ids.length !== 1 ? "s" : ""} and their upvotes. This cannot be undone.</>,
+      confirmLabel: `Delete ${ids.length} request${ids.length !== 1 ? "s" : ""}`,
+      confirmText: "DELETE",
+    }))) return;
     setBulkDeleting(true);
     try {
       const { deleted } = await api.adminBatchDeleteRequests(ids);
@@ -786,6 +830,8 @@ function RequestsTab() {
       </div>
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} totalItems={filteredCount} pageSize={PAGE_SIZE} />
+
+      {confirmDialog}
 
       {modal === "create" && (
         <FormModal
@@ -859,6 +905,7 @@ function AuditLogTab() {
       </div>
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} totalItems={filteredCount} pageSize={PAGE_SIZE} />
+
     </div>
   );
 }
