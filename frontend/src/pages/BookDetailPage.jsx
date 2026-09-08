@@ -87,7 +87,7 @@ export function BookDetailPage({ currentUser, onOpenAuth, isSuperAdmin, authChec
               background: book.moderationStatus === "pending" ? "rgba(255,205,91,0.15)" : "rgba(248,113,113,0.15)",
             }}>
               <AlertTriangle size={13} />
-              {book.moderationStatus === "pending" ? "Pending admin review - not visible in the public library yet" : "Rejected by an admin - not visible in the public library"}
+              {book.moderationStatus === "pending" ? "Pending admin review. Not visible in the public library yet" : "Rejected by an admin. Not visible in the public library"}
             </div>
           )}
 

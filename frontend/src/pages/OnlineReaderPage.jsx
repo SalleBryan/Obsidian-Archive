@@ -14,7 +14,7 @@ export function OnlineReaderPage({ currentUser, authChecked }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Reader settings - lifted here so the shared header can control them
+  // Reader settings, lifted here so the shared header can control them
   const [theme, setTheme] = useState("dark");
   const [fontSize, setFontSize] = useState(18);
   const [isFullscreen, setIsFullscreen] = useState(false);

@@ -20,7 +20,7 @@ with open(_ADMIN_CONFIG_PATH) as _f:
     _SUPER_ADMIN_EMAILS = ",".join(json.load(_f)["superAdminEmails"])
 
 # Auth is a bearer token rather than a cookie, so a wildcard origin was never
-# directly exploitable - but there's no reason for any origin but these to be
+# directly exploitable, but there is no reason for any origin but these to be
 # able to read a response from this API.
 # The first entry becomes the statically-emitted preflight default; the rest are
 # matched by a VTL override on the request's Origin header, so production leads.
@@ -164,7 +164,7 @@ class ObsidianApiStack(Stack):
         progress_table.grant_read_write_data(progress_fn)
 
         # 1g. Admin: super-admin only management panel.
-        # Split across two identical Lambdas (same code/handler - admin.py's
+        # Split across two identical Lambdas (same code and handler, since admin.py's
         # router dispatches purely on event resource+method, so which physical
         # function runs it is irrelevant) because API Gateway creates one
         # AWS::Lambda::Permission per route pointing at a function, and with
@@ -184,7 +184,7 @@ class ObsidianApiStack(Stack):
         )
         # This function only serves stats, audit log, announcement and user
         # routes: it counts books/requests but never mutates them, and never
-        # touches S3 - book/request deletion lives on admin_books_fn.
+        # touches S3. Book and request deletion live on admin_books_fn.
         books_table.grant_read_data(admin_fn)
         requests_table.grant_read_data(admin_fn)
         profiles_table.grant_read_write_data(admin_fn)
@@ -224,7 +224,7 @@ class ObsidianApiStack(Stack):
         # ── 2. API GATEWAY ──
         # Several routes are intentionally unauthenticated and each does DynamoDB
         # work, so without a stage throttle the API inherits the account-wide
-        # 10,000 rps default - far more than this app needs and a direct path to
+        # 10,000 rps default, far more than this app needs and a direct path to
         # a runaway bill.
         api = apigw.RestApi(
             self, "ObsidianApi",
@@ -280,7 +280,7 @@ class ObsidianApiStack(Stack):
             authorizer_name="ObsidianCognitoAuth",
         )
 
-        # ── /announcement (public GET - platform-wide banner, no auth needed) ──
+        # ── /announcement (public GET, platform-wide banner, no auth needed) ──
         announcement_res = api.root.add_resource("announcement")
         announcement_res.add_method("GET", apigw.LambdaIntegration(reader_fn))
 
@@ -313,7 +313,7 @@ class ObsidianApiStack(Stack):
                               authorizer=cognito_authorizer,
                               authorization_type=apigw.AuthorizationType.COGNITO)
 
-        # ── /books/{bookId}/read (public - no auth) ──
+        # ── /books/{bookId}/read (public, no auth) ──
         book_read = book_by_id.add_resource("read")
         book_read.add_method("GET", apigw.LambdaIntegration(upload_fn))
 
@@ -366,13 +366,13 @@ class ObsidianApiStack(Stack):
                                authorizer=cognito_authorizer,
                                authorization_type=apigw.AuthorizationType.COGNITO)
 
-        # ── /progress (authenticated GET - list) ──
+        # ── /progress (authenticated GET, list) ──
         progress_res = api.root.add_resource("progress")
         progress_res.add_method("GET", apigw.LambdaIntegration(progress_fn),
                                 authorizer=cognito_authorizer,
                                 authorization_type=apigw.AuthorizationType.COGNITO)
 
-        # ── /progress/{bookId} (authenticated PUT/DELETE - upsert/remove) ──
+        # ── /progress/{bookId} (authenticated PUT/DELETE, upsert/remove) ──
         progress_by_id = progress_res.add_resource("{bookId}")
         progress_by_id.add_method("PUT", apigw.LambdaIntegration(progress_fn),
                                   authorizer=cognito_authorizer,
@@ -390,7 +390,7 @@ class ObsidianApiStack(Stack):
                                      authorizer=cognito_authorizer,
                                      authorization_type=apigw.AuthorizationType.COGNITO)
 
-        # ── /admin/* (super-admin only - auth enforced in Lambda too) ──
+        # ── /admin/* (super-admin only, auth enforced in Lambda too) ──
         admin_res = api.root.add_resource("admin")
 
         admin_stats = admin_res.add_resource("stats")

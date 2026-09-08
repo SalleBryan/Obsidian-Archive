@@ -181,14 +181,14 @@ export function MyCollectionPage({ searchQuery, currentUser, onOpenAuth, isSuper
       ) : (
         /* ALL BOOKS SHELF + GRID */
         <div>
-          {/* Real Continue Reading shelf - books in progress with % completion */}
+          {/* Real Continue Reading shelf: books in progress with % completion */}
           <ContinueReadingShelf
             entries={readingEntries}
             coverMap={coverMap}
             onOpenReader={(bid) => navigate(`/read/${bid}`)}
           />
 
-          {/* Private Collection - the user's own private books, kept in their own shelf */}
+          {/* Private Collection: the user's own private books, kept in their own shelf */}
           {(() => {
             const privateBooks = filteredBooks.filter(b => b.visibility === "private");
             return privateBooks.length > 0 ? (

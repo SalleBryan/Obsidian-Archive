@@ -62,7 +62,7 @@ def lambda_handler(event, context):
                 return respond(403, {"error": "This book is in a private collection."})
 
             # Pending and rejected books stay unreadable to everyone but their
-            # owner and admins, matching reader.py - otherwise rejecting a book
+            # owner and admins, matching reader.py. Otherwise rejecting a book
             # leaves its file downloadable by anyone holding the bookId.
             if book.get('moderationStatus', 'approved') != 'approved' and not is_owner_or_admin:
                 return respond(404, {"error": "Book not found"})

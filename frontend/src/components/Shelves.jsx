@@ -108,7 +108,7 @@ export function ContinueReadingShelf({ entries, coverMap, onOpenReader }) {
               key={e.bookId}
               className="book-shelf-item"
               onClick={() => onOpenReader(e.bookId)}
-              title={`Resume "${e.title}" - ${pct}% read`}
+              title={`Resume "${e.title}", ${pct}% read`}
               role="button"
               tabIndex={0}
               aria-label={`Resume "${e.title}", ${pct}% read`}

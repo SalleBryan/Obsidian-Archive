@@ -210,7 +210,7 @@ def create_user(body):
             "requestNotifications": True,
             "createdAt": _now(),
         })
-    return respond(201, {"message": "User created - temporary password emailed", "userId": user_id})
+    return respond(201, {"message": "User created, temporary password emailed", "userId": user_id})
 
 
 def update_user(user_id, body):
@@ -397,7 +397,7 @@ def create_book_admin(body, auth):
 
 
 def _notify_matching_requesters(book_id, book_title, uploader_name, now):
-    """Auto-fulfill matching open requests and notify requesters - runs on
+    """Auto-fulfill matching open requests and notify requesters. Runs on
     approval, not upload, so a rejected book never generates a false notice."""
     if not requests_table or not notifications_table or not book_title:
         return

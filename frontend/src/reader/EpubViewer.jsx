@@ -92,7 +92,7 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
         bookRef.current = book;
 
         // spread:"auto" gives a two-page (open-book) layout when the viewport is wide (≥800px),
-        // and a single page on tablets/phones - matching the requested behaviour without extra logic.
+        // and a single page on tablets/phones, matching the requested behaviour without extra logic.
         rendition = book.renderTo(viewerRef.current, { width: "100%", height: "100%", flow: "paginated", spread: "auto" });
         renditionRef.current = rendition;
         applyStyles(rendition, theme, fontSize);
@@ -103,10 +103,10 @@ export function EpubViewer({ readUrl, theme, fontSize, title, bookId, userId, au
         try {
           await rendition.display(savedCfi || undefined);
         } catch {
-          await rendition.display(); // saved CFI stale - fall back to start
+          await rendition.display(); // saved CFI stale, so fall back to start
         }
 
-        // Show the book immediately - don't block on TOC or locations
+        // Show the book immediately, without blocking on TOC or locations
         if (isMounted) setLoadingBook(false);
 
         // Load Table of Contents

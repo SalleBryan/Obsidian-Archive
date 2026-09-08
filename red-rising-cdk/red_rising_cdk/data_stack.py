@@ -26,7 +26,7 @@ class ObsidianDataStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # Physical resource names stay exactly as they are today when stage is
-        # "prod" (the default) - nothing about the live stack changes. Passing
+        # "prod" (the default), so nothing about the live stack changes. Passing
         # stage="dev" suffixes every physical name so a second, fully isolated
         # copy of this stack can be deployed side by side without colliding
         # with production (S3 bucket names and the Cognito domain prefix must
@@ -35,7 +35,7 @@ class ObsidianDataStack(Stack):
             return base if stage == "prod" else f"{base}-{stage}"
 
         # ══════════════════════════════════════════════════════════════════════
-        # 1. COGNITO - User Pool + Google Identity Provider
+        # 1. COGNITO: User Pool + Google Identity Provider
         # ══════════════════════════════════════════════════════════════════════
         user_pool = cognito.UserPool(
             self, "ObsidianUserPool",
@@ -99,7 +99,7 @@ class ObsidianDataStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
-        # Google Identity Provider - the Client ID is not sensitive (it's public
+        # Google Identity Provider. The Client ID is not sensitive (it's public
         # by design, visible in every OAuth redirect URL), so it stays a plain
         # env var. The Client Secret is genuinely sensitive and is pulled from
         # Secrets Manager instead of ever being typed on the command line.
@@ -176,7 +176,7 @@ class ObsidianDataStack(Stack):
         )
 
         # ══════════════════════════════════════════════════════════════════════
-        # 2. DYNAMODB - Books, Profiles, Requests tables
+        # 2. DYNAMODB: Books, Profiles, Requests tables
         # ══════════════════════════════════════════════════════════════════════
         books_table = dynamodb.Table(
             self, "BooksTable",
@@ -256,7 +256,7 @@ class ObsidianDataStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
-        # Reading progress - one row per (userId, bookId) for cross-device "continue reading"
+        # Reading progress: one row per (userId, bookId) for cross-device "continue reading"
         progress_table = dynamodb.Table(
             self, "ProgressTable",
             table_name=n("obsidian-progress"),
@@ -275,7 +275,7 @@ class ObsidianDataStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
-        # Admin action audit trail - who did what, and when. Low volume by
+        # Admin action audit trail: who did what, and when. Low volume by
         # nature (only admin actions), so a scan-and-sort read pattern is fine
         # at this scale rather than a time-bucketed partition key.
         audit_log_table = dynamodb.Table(
@@ -292,7 +292,7 @@ class ObsidianDataStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
-        # Platform-wide banner - a single row (id="current") holding whatever
+        # Platform-wide banner: a single row (id="current") holding whatever
         # the admin currently wants every visitor to see, or nothing.
         announcement_table = dynamodb.Table(
             self, "AnnouncementTable",
@@ -309,7 +309,7 @@ class ObsidianDataStack(Stack):
         )
 
         # ══════════════════════════════════════════════════════════════════════
-        # 3. SQS - Main queue + Dead Letter Queue
+        # 3. SQS: Main queue + Dead Letter Queue
         # ══════════════════════════════════════════════════════════════════════
         # Unlike S3 and DynamoDB, SQS is not encrypted at rest by default, and
         # these messages carry user-supplied titles, descriptions and names.
@@ -333,7 +333,7 @@ class ObsidianDataStack(Stack):
             ),
         )
 
-        # Alert on any message landing in the DLQ - a message only gets here after
+        # Alert on any message landing in the DLQ. A message only gets here after
         # consumer_fn fails on it 3 times, which means a write silently never
         # happened. Without this alarm that failure is invisible unless someone
         # happens to check the SQS console.
@@ -355,7 +355,7 @@ class ObsidianDataStack(Stack):
         )
         dlq_messages_alarm.add_alarm_action(cw_actions.SnsAction(dlq_alert_topic))
 
-        # AWS Budgets tracks total account spend, not per-stack spend - so this
+        # AWS Budgets tracks total account spend, not per-stack spend, so this
         # is only created once (on the prod deploy) to avoid two overlapping
         # budgets fighting over the same account-wide cost data when a dev
         # stage stack is also deployed.
@@ -394,7 +394,7 @@ class ObsidianDataStack(Stack):
             )
 
         # ══════════════════════════════════════════════════════════════════════
-        # 4. S3 - Covers bucket (public) + Files bucket (private)
+        # 4. S3: Covers bucket (public) + Files bucket (private)
         # ══════════════════════════════════════════════════════════════════════
         covers_bucket = s3.Bucket(
             self, "CoversBucket",
@@ -493,11 +493,11 @@ class ObsidianDataStack(Stack):
         # ══════════════════════════════════════════════════════════════════════
         CfnOutput(self, "UserPoolId",
             value=user_pool.user_pool_id,
-            description="Cognito User Pool ID - needed in frontend Amplify config")
+            description="Cognito User Pool ID, needed in frontend Amplify config")
 
         CfnOutput(self, "UserPoolClientId",
             value=user_pool_client.user_pool_client_id,
-            description="Cognito App Client ID - needed in frontend Amplify config")
+            description="Cognito App Client ID, needed in frontend Amplify config")
 
         CfnOutput(self, "UserPoolDomain",
             value=user_pool_domain.domain_name,
@@ -511,4 +511,4 @@ class ObsidianDataStack(Stack):
 
         CfnOutput(self, "DLQUrl",
             value=dlq.queue_url,
-            description="Dead Letter Queue - inspect failed messages here")
+            description="Dead Letter Queue: inspect failed messages here")

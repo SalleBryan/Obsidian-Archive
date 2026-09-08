@@ -16,7 +16,7 @@ function StatCard({ label, value, icon: Icon, accent = "#ffcd5b" }) {
         <Icon size={20} />
       </div>
       <div>
-        <div className="admin-stat-value">{value ?? " - "}</div>
+        <div className="admin-stat-value">{value ?? "-"}</div>
         <div className="admin-stat-label">{label}</div>
       </div>
     </div>
@@ -489,11 +489,11 @@ function UsersTab() {
               <input type="checkbox" checked={selected.has(u.userId)} onChange={() => toggleOne(u.userId)} />
             </span>
             <div>
-              <div className="admin-row-title">{u.name || " - "}</div>
+              <div className="admin-row-title">{u.name || "-"}</div>
               <div className="admin-row-sub">{u.email}</div>
             </div>
             <Badge color={u.enabled ? "#4ade80" : "#f87171"}>{u.enabled ? "Active" : "Disabled"}</Badge>
-            <div className="admin-row-date">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : " - "}</div>
+            <div className="admin-row-date">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}</div>
             <div className="admin-row-actions">
               <IconBtn color="#60a5fa" onClick={() => setModal(u)} aria-label={`Edit ${u.email}`}><Pencil size={12} /></IconBtn>
               <IconBtn color={u.enabled ? "#f87171" : "#4ade80"} onClick={() => toggle(u)} disabled={busy === u.userId} aria-label={u.enabled ? `Disable ${u.email}` : `Enable ${u.email}`}>
@@ -669,7 +669,7 @@ function BooksTab() {
             </div>
             <Badge color={b.visibility === "public" ? "#60a5fa" : "#a78bfa"}>{b.visibility === "public" ? "Public" : "Private"}</Badge>
             <Badge color={MODERATION_COLORS[modStatus]}>{modStatus.charAt(0).toUpperCase() + modStatus.slice(1)}</Badge>
-            <Badge color="#ffcd5b">{(b.fileType || " - ").toUpperCase()}</Badge>
+            <Badge color="#ffcd5b">{(b.fileType || "-").toUpperCase()}</Badge>
             <div className="admin-row-actions">
               {modStatus === "pending" && (
                 <>
@@ -818,7 +818,7 @@ function RequestsTab() {
               <div className="admin-row-sub">Requested by {r.requesterName || "Unknown"}</div>
             </div>
             <Badge color={r.status === "fulfilled" ? "#4ade80" : "#ffcd5b"}>{r.status === "fulfilled" ? "Fulfilled" : "Open"}</Badge>
-            <div className="admin-row-date">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : " - "}</div>
+            <div className="admin-row-date">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "-"}</div>
             <div className="admin-row-actions">
               <IconBtn color="#60a5fa" onClick={() => setModal(r)} aria-label={`Edit ${r.title}`}><Pencil size={12} /></IconBtn>
               <IconBtn color="#f87171" onClick={() => del(r)} disabled={busy === r.requestId} aria-label={`Delete ${r.title}`}>
@@ -899,7 +899,7 @@ function AuditLogTab() {
             <div className="admin-row-title">{ACTION_LABELS[entry.action] || entry.action}</div>
             <div className="admin-row-sub">{entry.targetType}{entry.targetId ? `: ${entry.targetId}` : ""}</div>
             <div className="admin-row-sub">{entry.adminEmail}</div>
-            <div className="admin-row-date">{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : " - "}</div>
+            <div className="admin-row-date">{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "-"}</div>
           </div>
         ))}
       </div>

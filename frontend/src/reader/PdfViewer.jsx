@@ -178,7 +178,7 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
     >
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: "8px 0", overflow: "hidden", position: "relative" }}>
 
-        {/* Prev arrow - hidden on mobile (use swipe) */}
+        {/* Prev arrow, hidden on mobile (use swipe) */}
         {!loading && numPages > 0 && (
           <button
             onClick={prevPage}
@@ -198,7 +198,7 @@ export function PdfViewer({ readUrl, title, theme, bookId, userId, author }) {
           style={{ flex: 1, height: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, overflow: "hidden" }}
         />
 
-        {/* Next arrow - hidden on mobile */}
+        {/* Next arrow, hidden on mobile */}
         {!loading && numPages > 0 && (
           <button
             onClick={nextPage}

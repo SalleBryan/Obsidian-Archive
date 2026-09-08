@@ -22,7 +22,7 @@ import "./config/amplifyConfig";
 // Lazy-loaded: OnlineReaderPage pulls in epub.js + pdfjs-dist (the two
 // heaviest dependencies in the app, ~1.7MB combined). AdminPage is reachable
 // by only one person. Neither should be in the bundle every visitor downloads
-// just to browse the library - they're fetched only when actually navigated to.
+// just to browse the library. They are fetched only when actually navigated to.
 const OnlineReaderPage = lazy(() => import("./pages/OnlineReaderPage").then(m => ({ default: m.OnlineReaderPage })));
 const AdminPage = lazy(() => import("./pages/AdminPage").then(m => ({ default: m.AdminPage })));
 

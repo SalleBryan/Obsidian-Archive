@@ -152,7 +152,7 @@ export function UserProfilePage({ currentUser, onOpenAuth, isSuperAdmin }) {
           <h3 style={{ fontSize: 15, fontWeight: 800, color: "#f87171" }}>Danger Zone</h3>
         </div>
         <p style={{ fontSize: 13, color: "#a1a1aa", marginBottom: 16 }}>
-          Permanently deletes your account and profile. Your uploaded books and requests are not automatically removed -
+          Permanently deletes your account and profile. Your uploaded books and requests are not automatically removed:
           contact an admin if you also need those taken down. This cannot be undone.
         </p>
 

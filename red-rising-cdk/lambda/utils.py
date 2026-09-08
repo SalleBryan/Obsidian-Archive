@@ -26,7 +26,7 @@ def get_auth_context(event):
     user_id = claims.get('sub')
     email = (claims.get('email') or '').lower()
     # Cognito emails are mutable, so an unverified address is not proof of
-    # identity - admin elevation requires the address to be verified.
+    # identity: admin elevation requires the address to be verified.
     verified = str(claims.get('email_verified', '')).lower() == 'true'
     is_super_admin = verified and email in SUPER_ADMIN_EMAILS
     return {

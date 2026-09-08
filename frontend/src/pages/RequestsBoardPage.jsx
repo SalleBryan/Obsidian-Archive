@@ -49,7 +49,7 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   const handleUpvote = async (r) => {
     if (!currentUser) { onOpenAuth("signin"); return; }
     if (r.pending) return;  // no server-side id yet
-    // Optimistic toggle - the write goes through SQS asynchronously, so
+    // Optimistic toggle: the write goes through SQS asynchronously, so
     // waiting for the real response before updating the UI would feel laggy.
     setRequests(prev => prev.map(x => x.requestId === r.requestId
       ? { ...x, hasUpvoted: !x.hasUpvoted, upvoteCount: x.upvoteCount + (x.hasUpvoted ? -1 : 1) }

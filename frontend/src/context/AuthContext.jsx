@@ -52,7 +52,7 @@ export function AuthProvider({ children }) {
   }, [checkAuth]);
 
   // After a Google SSO redirect, Amplify exchanges the auth code for tokens in
-  // the background and fires "signInWithRedirect" (NOT "signedIn" - that event
+  // the background and fires "signInWithRedirect" (NOT "signedIn": that event
   // is only for direct signIn() calls). We listen for both so React state
   // updates and the UI reflects the authenticated user. "signInWithRedirect_failure"
   // is also handled so a broken OAuth exchange surfaces an error instead of
@@ -210,7 +210,7 @@ export function AuthProvider({ children }) {
   };
 
   const handleDeleteAccount = async () => {
-    // Profile row must be removed BEFORE deleteUser() - that call invalidates
+    // Profile row must be removed BEFORE deleteUser(), because that call invalidates
     // the current JWT immediately, so any authenticated backend call after it
     // would fail. Cognito account deletion itself signs the user out.
     const userId = currentUser?.userId;

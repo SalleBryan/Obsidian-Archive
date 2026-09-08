@@ -48,13 +48,13 @@ from red_rising_cdk.api_stack import ObsidianApiStack
 
 app = cdk.App()
 # CDK_DEFAULT_ACCOUNT / CDK_DEFAULT_REGION are populated automatically from your
-# active AWS CLI credentials at synth time - no account ID committed to source.
+# active AWS CLI credentials at synth time, so no account ID is committed to source.
 env = cdk.Environment(
     account=os.environ.get("CDK_DEFAULT_ACCOUNT"),
     region=os.environ.get("CDK_DEFAULT_REGION", "us-east-1"),
 )
 
-# Defaults to "prod" so a plain `cdk deploy` behaves exactly as it always has -
+# Defaults to "prod" so a plain `cdk deploy` behaves exactly as it always has:
 # same stack IDs, same physical resource names, touches nothing about the live
 # environment. Deploy an isolated dev copy alongside it with:
 #   cdk deploy --context stage=dev --all
