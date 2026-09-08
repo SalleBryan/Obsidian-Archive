@@ -15,6 +15,8 @@ import { PublicLibraryPage } from "./pages/PublicLibraryPage";
 import { RequestsBoardPage } from "./pages/RequestsBoardPage";
 import { UploadBookPage } from "./pages/UploadBookPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
+import { NotFoundPage } from "./pages/NotFoundPage";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./config/amplifyConfig";
 
 // Lazy-loaded: OnlineReaderPage pulls in epub.js + pdfjs-dist (the two
@@ -121,6 +123,7 @@ function AppShell() {
           />
 
           <main id="main-content">
+            <ErrorBoundary resetKey={location.pathname}>
             <Routes>
               <Route path="/" element={<Navigate to="/library" replace />} />
               <Route
@@ -184,7 +187,9 @@ function AppShell() {
                   />
                 }
               />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            </ErrorBoundary>
           </main>
         </div>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, X, Loader2, MessageSquarePlus, ArrowBigUp } from "lucide-react";
-import { api } from "../api";
+import { Plus, Trash2, X, Loader2, MessageSquarePlus, ArrowBigUp, Lock, LogIn } from "lucide-react";
+import { api, AuthRequiredError } from "../api";
 
 export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   const [requests, setRequests] = useState([]);
@@ -9,6 +9,8 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ title: "", author: "", description: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -18,16 +20,35 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
   }, [modalOpen]);
 
   const loadRequests = async () => {
+    // The board is authenticated-only, so skip the round trip when there is no
+    // session and show the gate immediately.
+    if (!currentUser) {
+      setAuthRequired(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const data = await api.getRequests();
-    setRequests(data);
-    setLoading(false);
+    setAuthRequired(false);
+    setLoadError("");
+    try {
+      setRequests(await api.getRequests());
+    } catch (err) {
+      // A 401 here means the session expired mid-visit, not that something
+      // broke. Anything else is a real failure and says so.
+      if (err instanceof AuthRequiredError) setAuthRequired(true);
+      else setLoadError(err.message || "Could not load book requests.");
+    } finally {
+      // Always clears: this page previously left the spinner running forever
+      // whenever the request threw.
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { loadRequests(); }, []);
+  useEffect(() => { loadRequests(); }, [currentUser]);
 
   const handleUpvote = async (r) => {
     if (!currentUser) { onOpenAuth("signin"); return; }
+    if (r.pending) return;  // no server-side id yet
     // Optimistic toggle - the write goes through SQS asynchronously, so
     // waiting for the real response before updating the UI would feel laggy.
     setRequests(prev => prev.map(x => x.requestId === r.requestId
@@ -49,13 +70,44 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
     e.preventDefault();
     if (!currentUser) { onOpenAuth("signin"); return; }
     setSubmitting(true);
+
+    // createRequest returns 202 the moment the write is queued; the row does
+    // not exist until the SQS consumer commits it, which is well past any
+    // refetch worth waiting on. Previously the board refetched after 1s, got
+    // stale data, and showed "No Active Requests" - so submitting looked like
+    // it had failed and the natural response was to submit again. Show the
+    // request immediately instead, the same way upvoting already does.
+    const payload = { ...form };
+    const optimistic = {
+      requestId: `pending-${Date.now()}`,
+      title: payload.title,
+      author: payload.author,
+      description: payload.description,
+      requesterId: currentUser.userId,
+      requesterName: currentUser.name || "You",
+      status: "open",
+      upvoteCount: 0,
+      hasUpvoted: false,
+      pending: true,
+    };
+    setRequests((prev) => [optimistic, ...prev]);
+    setModalOpen(false);
+    setForm({ title: "", author: "", description: "" });
+
     try {
-      await api.createRequest(form);
-      setModalOpen(false);
-      setForm({ title: "", author: "", description: "" });
-      setTimeout(loadRequests, 1000);
+      await api.createRequest(payload);
+      // Reconcile once the consumer has had time to commit. If the real row is
+      // not visible yet, keep the optimistic one rather than letting the
+      // request appear to vanish.
+      setTimeout(async () => {
+        try {
+          const fresh = await api.getRequests();
+          if (fresh.some((r) => r.title === optimistic.title)) setRequests(fresh);
+        } catch { /* leave the optimistic row in place */ }
+      }, 4000);
     } catch (err) {
-      alert(err.message || "Error submitting request.");
+      setRequests((prev) => prev.filter((r) => r.requestId !== optimistic.requestId));
+      setLoadError(err.message || "Could not submit your request.");
     } finally {
       setSubmitting(false);
     }
@@ -79,6 +131,24 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
 
       {loading ? (
         <div className="loading-center"><Loader2 size={40} color="#ffcd5b" className="spin" /></div>
+      ) : authRequired ? (
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 500, margin: "40px auto" }}>
+          <Lock size={44} style={{ color: "#ffcd5b", margin: "0 auto 16px" }} />
+          <h2>Sign In to See Book Requests</h2>
+          <p style={{ color: "#a1a1aa", fontSize: 14, marginTop: 8, marginBottom: 20 }}>
+            The wishlist is shared between signed-in readers, so you can see what others are after and add your own.
+          </p>
+          <button className="btn btn-primary" onClick={() => onOpenAuth("signin")}>
+            <LogIn size={16} /> Sign In
+          </button>
+        </div>
+      ) : loadError ? (
+        <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 500, margin: "40px auto" }}>
+          <MessageSquarePlus size={44} style={{ color: "#f87171", margin: "0 auto 16px" }} />
+          <h2>Could not load requests</h2>
+          <p style={{ color: "#a1a1aa", fontSize: 14, marginTop: 8, marginBottom: 20 }}>{loadError}</p>
+          <button className="btn btn-secondary" onClick={loadRequests}>Try again</button>
+        </div>
       ) : requests.length === 0 ? (
         <div className="editor-card glass-panel" style={{ textAlign: "center", padding: "60px 20px", maxWidth: 500, margin: "40px auto" }}>
           <MessageSquarePlus size={44} style={{ color: "#ffcd5b", margin: "0 auto 16px" }} />
@@ -88,7 +158,12 @@ export function RequestsBoardPage({ currentUser, onOpenAuth, isSuperAdmin }) {
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 20 }}>
           {requests.map((r) => (
-            <div key={r.requestId} className="editor-card glass-panel" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div key={r.requestId} className="editor-card glass-panel" style={{ display: "flex", flexDirection: "column", gap: 12, opacity: r.pending ? 0.65 : 1 }}>
+              {r.pending && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#ffcd5b", display: "flex", alignItems: "center", gap: 6 }}>
+                  <Loader2 size={12} className="spin" /> Posting your request…
+                </span>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                 <button
                   onClick={() => handleUpvote(r)}
