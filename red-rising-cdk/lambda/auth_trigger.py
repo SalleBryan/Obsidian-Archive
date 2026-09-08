@@ -1,3 +1,4 @@
+from utils import log
 import boto3
 import os
 from datetime import datetime, timezone
@@ -7,6 +8,9 @@ PROFILES_TABLE = os.environ.get('PROFILES_TABLE')
 profiles_table = dynamodb.Table(PROFILES_TABLE)
 
 def lambda_handler(event, context):
+    # Bound before the try so the except block can log context even when
+    # the failure happens on the very first statement.
+    user_id = None
     try:
         request = event.get('request', {})
         user_attrs = request.get('userAttributes', {})
@@ -31,6 +35,6 @@ def lambda_handler(event, context):
                 }
             )
     except Exception as e:
-        print(f"Error creating profile: {e}")
+        log("profile_bootstrap_failed", level="ERROR", user_id=user_id, error=e)
         
     return event

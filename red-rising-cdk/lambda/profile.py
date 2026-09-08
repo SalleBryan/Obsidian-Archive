@@ -1,13 +1,16 @@
 import json
 import boto3
 import os
-from utils import respond, get_auth_context, parse_body
+from utils import respond, get_auth_context, parse_body, log
 
 dynamodb = boto3.resource('dynamodb')
 PROFILES_TABLE = os.environ.get('PROFILES_TABLE')
 profiles_table = dynamodb.Table(PROFILES_TABLE)
 
 def lambda_handler(event, context):
+    # Bound before the try so the except block can log context even when
+    # the failure happens on the very first statement.
+    method = event.get("httpMethod")
     try:
         auth = get_auth_context(event)
         user_id = auth['userId']
@@ -61,5 +64,5 @@ def lambda_handler(event, context):
         return respond(405, {"error": "Method not allowed"})
         
     except Exception as e:
-        print(f"Error: {e}")
+        log("profile_request_failed", level="ERROR", method=method, error=e)
         return respond(500, {"error": "Internal server error"})
