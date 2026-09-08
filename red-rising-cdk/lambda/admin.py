@@ -3,7 +3,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from boto3.dynamodb.conditions import Attr
-from utils import respond, get_auth_context, parse_body, log
+from utils import respond, get_auth_context, parse_body, log, SUPER_ADMIN_EMAILS
 
 cognito_client = boto3.client('cognito-idp')
 dynamodb = boto3.resource('dynamodb')
@@ -33,7 +33,33 @@ def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def _audit(auth, action, target_type="", target_id=""):
+def _label_for(target_type, target_id):
+    """Resolve a human-readable name for an audit target.
+
+    The log stored bare UUIDs, so "Approved book cfdfd28b-6356-..." could not
+    answer which book was approved without a lookup - and once the row is
+    deleted, no lookup is possible at all. Resolving a label at write time
+    keeps the record meaningful after its target is gone.
+
+    Never raises: an audit entry with a missing label is far better than a
+    mutation that fails because its logging did.
+    """
+    if not target_id:
+        return ""
+    try:
+        if target_type == "book" and books_table:
+            return (books_table.get_item(Key={"bookId": target_id}).get("Item") or {}).get("title", "")
+        if target_type == "request" and requests_table:
+            return (requests_table.get_item(Key={"requestId": target_id}).get("Item") or {}).get("title", "")
+        if target_type == "user" and profiles_table:
+            return (profiles_table.get_item(Key={"userId": target_id}).get("Item") or {}).get("email", "")
+    except Exception as e:
+        log("audit_label_lookup_failed", level="WARN",
+            target_type=target_type, target_id=target_id, error=e)
+    return ""
+
+
+def _audit(auth, action, target_type="", target_id="", target_label=""):
     if not audit_log_table:
         return
     try:
@@ -42,6 +68,7 @@ def _audit(auth, action, target_type="", target_id=""):
             "action": action,
             "targetType": target_type,
             "targetId": target_id,
+            "targetLabel": target_label,
             "adminEmail": auth.get("email", ""),
             "timestamp": _now(),
         })
@@ -49,11 +76,18 @@ def _audit(auth, action, target_type="", target_id=""):
         log("audit_write_failed", level="ERROR", action=action, error=e)
 
 
-def _logged(resp, auth, action, target_type="", target_id=""):
-    """Wrap a mutating handler's response: log an audit entry only if the
-    action actually succeeded (2xx), leaving the response itself untouched."""
+def _logged(action_fn, auth, action, target_type="", target_id=""):
+    """Run a mutating handler and record it if it succeeded (2xx).
+
+    Takes a callable rather than an already-computed response so the target's
+    label can be resolved first. Python evaluates arguments before the call, so
+    passing delete_book_admin(bid) directly would have deleted the row before
+    there was any chance to read its title.
+    """
+    label = _label_for(target_type, target_id)
+    resp = action_fn()
     if 200 <= resp.get("statusCode", 500) < 300:
-        _audit(auth, action, target_type, target_id)
+        _audit(auth, action, target_type, target_id, label)
     return resp
 
 
@@ -214,9 +248,53 @@ def update_user(user_id, body):
     return respond(200, {"message": "User updated"})
 
 
-def delete_user(user_id):
+def _is_protected_admin(user_id):
+    """True when this account is on the super-admin allowlist.
+
+    Deleting or disabling the only admin locks everyone out of the panel
+    permanently: the allowlist is matched on email, so there is no in-app route
+    back once that account is gone. The Users table gave no hint that a row was
+    special, and every row carried an active delete button.
+
+    Resolves the id to an email through the profiles table, which is the same
+    mapping the Cognito Admin* calls already rely on.
+    """
+    if not user_id:
+        return False
+    try:
+        email = (_resolve_username(user_id) or "").strip().lower()
+        return bool(email) and email in SUPER_ADMIN_EMAILS
+    except Exception as e:
+        # Fail closed: if we cannot tell, refuse rather than risk the lockout.
+        log("admin_guard_lookup_failed", level="ERROR", user_id=user_id, error=e)
+        return True
+
+
+def _guard_admin_target(user_id, auth, verb):
+    """Return an error response when a destructive action targets an admin.
+
+    Enforced here rather than only in the UI: hiding the button stops an
+    accidental click, but the endpoint is still reachable directly.
+    """
+    if auth.get("userId") and auth["userId"] == user_id:
+        return respond(400, {
+            "error": f"You cannot {verb} your own admin account. "
+                     "Ask another administrator if this is intended."
+        })
+    if _is_protected_admin(user_id):
+        return respond(400, {
+            "error": f"That account is an administrator and cannot be {verb}d from here. "
+                     "Remove it from the super-admin list first."
+        })
+    return None
+
+
+def delete_user(user_id, auth):
     if not user_id:
         return respond(400, {"error": "Missing userId"})
+    blocked = _guard_admin_target(user_id, auth, "delete")
+    if blocked:
+        return blocked
     username = _resolve_username(user_id)
     cognito_client.admin_delete_user(UserPoolId=USER_POOL_ID, Username=username)
     if profiles_table:
@@ -227,11 +305,15 @@ def delete_user(user_id):
     return respond(200, {"message": "User deleted"})
 
 
-def batch_delete_users(user_ids):
+def batch_delete_users(user_ids, auth):
     if not user_ids:
         return respond(400, {"error": "No userIds provided"})
-    deleted, failed = [], []
+    deleted, failed, protected = [], [], []
     for uid in user_ids:
+        # A bulk delete must not quietly take the admin down with the rest.
+        if _guard_admin_target(uid, auth, "delete"):
+            protected.append(uid)
+            continue
         try:
             username = _resolve_username(uid)
             cognito_client.admin_delete_user(UserPoolId=USER_POOL_ID, Username=username)
@@ -241,12 +323,16 @@ def batch_delete_users(user_ids):
         except Exception as e:
             log("batch_delete_user_failed", level="ERROR", user_id=uid, error=e)
             failed.append(uid)
-    return respond(200, {"deleted": deleted, "failed": failed})
+    return respond(200, {"deleted": deleted, "failed": failed, "protected": protected})
 
 
-def toggle_user(user_id, disable):
+def toggle_user(user_id, disable, auth):
     if not user_id:
         return respond(400, {"error": "Missing userId"})
+    if disable:
+        blocked = _guard_admin_target(user_id, auth, "disable")
+        if blocked:
+            return blocked
     username = _resolve_username(user_id)
     if disable:
         cognito_client.admin_disable_user(UserPoolId=USER_POOL_ID, Username=username)
@@ -557,76 +643,76 @@ def lambda_handler(event, context):
 
         if resource == "/admin/announcement":
             if method == "PUT":
-                return _logged(set_announcement(body), auth, "set_announcement", "announcement", body.get("message", ""))
+                return _logged(lambda: set_announcement(body), auth, "set_announcement", "announcement", body.get("message", ""))
             if method == "DELETE":
-                return _logged(clear_announcement(), auth, "clear_announcement", "announcement", "")
+                return _logged(lambda: clear_announcement(), auth, "clear_announcement", "announcement", "")
 
         if resource == "/admin/users":
             if method == "GET":
                 return list_users()
             if method == "POST":
-                return _logged(create_user(body), auth, "create_user", "user", body.get("email", ""))
+                return _logged(lambda: create_user(body), auth, "create_user", "user", body.get("email", ""))
 
         if resource == "/admin/users/{userId}":
             uid = path_params.get("userId")
             if method == "PUT":
-                return _logged(update_user(uid, body), auth, "update_user", "user", uid)
+                return _logged(lambda: update_user(uid, body), auth, "update_user", "user", uid)
             if method == "DELETE":
-                return _logged(delete_user(uid), auth, "delete_user", "user", uid)
+                return _logged(lambda: delete_user(uid, auth), auth, "delete_user", "user", uid)
 
         if resource == "/admin/users/batch-delete" and method == "POST":
             ids = body.get("userIds", [])
-            return _logged(batch_delete_users(ids), auth, "batch_delete_users", "user", f"{len(ids)} users")
+            return _logged(lambda: batch_delete_users(ids, auth), auth, "batch_delete_users", "user", f"{len(ids)} users")
 
         if resource == "/admin/users/{userId}/disable" and method == "PUT":
             uid = path_params.get("userId")
-            return _logged(toggle_user(uid, disable=True), auth, "disable_user", "user", uid)
+            return _logged(lambda: toggle_user(uid, disable=True, auth=auth), auth, "disable_user", "user", uid)
 
         if resource == "/admin/users/{userId}/enable" and method == "PUT":
             uid = path_params.get("userId")
-            return _logged(toggle_user(uid, disable=False), auth, "enable_user", "user", uid)
+            return _logged(lambda: toggle_user(uid, disable=False, auth=auth), auth, "enable_user", "user", uid)
 
         if resource == "/admin/books":
             if method == "GET":
                 return list_all_books()
             if method == "POST":
-                return _logged(create_book_admin(body, auth), auth, "create_book", "book", body.get("title", ""))
+                return _logged(lambda: create_book_admin(body, auth), auth, "create_book", "book", body.get("title", ""))
 
         if resource == "/admin/books/batch-delete" and method == "POST":
             ids = body.get("bookIds", [])
-            return _logged(batch_delete_books(ids), auth, "batch_delete_books", "book", f"{len(ids)} books")
+            return _logged(lambda: batch_delete_books(ids), auth, "batch_delete_books", "book", f"{len(ids)} books")
 
         if resource == "/admin/books/{bookId}":
             bid = path_params.get("bookId")
             if method == "PUT":
-                return _logged(update_book_admin(bid, body), auth, "update_book", "book", bid)
+                return _logged(lambda: update_book_admin(bid, body), auth, "update_book", "book", bid)
             if method == "DELETE":
-                return _logged(delete_book_admin(bid), auth, "delete_book", "book", bid)
+                return _logged(lambda: delete_book_admin(bid), auth, "delete_book", "book", bid)
 
         if resource == "/admin/books/{bookId}/approve" and method == "PUT":
             bid = path_params.get("bookId")
-            return _logged(approve_book_admin(bid), auth, "approve_book", "book", bid)
+            return _logged(lambda: approve_book_admin(bid), auth, "approve_book", "book", bid)
 
         if resource == "/admin/books/{bookId}/reject" and method == "PUT":
             bid = path_params.get("bookId")
-            return _logged(reject_book_admin(bid), auth, "reject_book", "book", bid)
+            return _logged(lambda: reject_book_admin(bid), auth, "reject_book", "book", bid)
 
         if resource == "/admin/requests":
             if method == "GET":
                 return list_all_requests()
             if method == "POST":
-                return _logged(create_request_admin(body, auth), auth, "create_request", "request", body.get("title", ""))
+                return _logged(lambda: create_request_admin(body, auth), auth, "create_request", "request", body.get("title", ""))
 
         if resource == "/admin/requests/batch-delete" and method == "POST":
             ids = body.get("requestIds", [])
-            return _logged(batch_delete_requests(ids), auth, "batch_delete_requests", "request", f"{len(ids)} requests")
+            return _logged(lambda: batch_delete_requests(ids), auth, "batch_delete_requests", "request", f"{len(ids)} requests")
 
         if resource == "/admin/requests/{requestId}":
             rid = path_params.get("requestId")
             if method == "PUT":
-                return _logged(update_request_admin(rid, body), auth, "update_request", "request", rid)
+                return _logged(lambda: update_request_admin(rid, body), auth, "update_request", "request", rid)
             if method == "DELETE":
-                return _logged(delete_request_admin(rid), auth, "delete_request", "request", rid)
+                return _logged(lambda: delete_request_admin(rid), auth, "delete_request", "request", rid)
 
         return respond(404, {"error": "Not found"})
     except cognito_client.exceptions.UsernameExistsException:
