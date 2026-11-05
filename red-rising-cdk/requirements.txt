@@ -1,5 +1,5 @@
 aws-cdk-lib>=2.100.0
-constructs>=10.0.0
+constructs>=10.8.1
 # data_stack.py imports boto3 directly to resolve the Google client-secret
 # ARN at synth time, and the lambda handler tests import the handlers.
 # It was previously only present by accident in local virtualenvs.
