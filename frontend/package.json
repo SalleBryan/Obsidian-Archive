@@ -20,6 +20,16 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.3.4"
+    "vite": "^6.4.4"
+  },
+  "overrides": {
+    "epubjs": {
+      "@xmldom/xmldom": "^0.9.12"
+    }
+  },
+  "pnpm": {
+    "overrides": {
+      "epubjs>@xmldom/xmldom": "^0.9.12"
+    }
   }
 }
